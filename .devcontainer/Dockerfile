@@ -4,7 +4,8 @@
 # Declare each ARG in the stage that uses it, right before its first use: a changed ARG reruns every RUN after its
 # declaration in that stage. ARGs before the first FROM are only for FROM lines.
 #
-# Only Node.js and pnpm, the site's toolchain, plus gh, oh-my-zsh and Claude Code for working in the repository.
+# Only Node.js and pnpm, the site's toolchain, plus gh, Python, oh-my-zsh and Claude Code for working in the
+# repository.
 
 # https://github.com/devcontainers/images/blob/main/src/base-debian/history
 ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:2.2.1-debian13@sha256:1f851004adcd3dff3776b4a1da86727cf52280b0fdc9d5b0568c9c7d74274286
@@ -30,6 +31,17 @@ ARG PNPM_VERSION=12.15.0
 ENV PNPM_HOME="$HOME/.local/share/pnpm"
 RUN curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=$PNPM_VERSION SHELL=bash sh -
 
+# For ad-hoc scripts only, so not used in CI. Prebuilt CPython from
+# https://github.com/astral-sh/python-build-standalone.
+FROM base AS python
+# PYTHON_BUILD is the python-build-standalone release tag; only bump to a release at least 7 days old
+ARG PYTHON_VERSION=3.14.9
+ARG PYTHON_BUILD=20261021
+RUN wget "https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_BUILD}/cpython-${PYTHON_VERSION}+${PYTHON_BUILD}-$(uname -m)-unknown-linux-gnu-install_only.tar.gz" -O /tmp/python.tar.gz && \
+    tar -C $HOME -xzf /tmp/python.tar.gz && \
+    mv $HOME/python $HOME/.python && \
+    rm /tmp/python.tar.gz
+
 # GitHub CLI, for local use only. Only bump to a release at least 7 days old
 FROM base AS gh
 ARG GH_VERSION=2.102.0
@@ -53,6 +65,8 @@ RUN mkdir -p $HOME/.config/vscode-dev-containers && \
 
 # The tools, last. No npm: pnpm only
 COPY --from=gh /opt/gh/bin/gh /usr/local/bin/gh
+COPY --from=python --chown=$USER:$USER $HOME/.python $HOME/.python
+ENV PATH=$PATH:$HOME/.python/bin
 ENV PNPM_HOME="$HOME/.local/share/pnpm"
 COPY --from=pnpm --chown=$USER:$USER $PNPM_HOME $PNPM_HOME
 # pnpm 11+ installs global binaries (including itself) under `bin`
