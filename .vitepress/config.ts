@@ -1,17 +1,20 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import type { Post } from './blog.js';
+import { readFileSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import Path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { transformerTwoslash } from '@shikijs/vitepress-twoslash';
 import ts from 'typescript';
 import { defineConfig } from 'vitepress';
-import { createPostsLoader, type Post } from './blog.js';
+import { createPostsLoader } from './blog.js';
 import { writeFeed } from './feed.js';
 import { leymanUrl } from './leyman.js';
 
 const tsConfigPath = fileURLToPath(new URL('../tsconfig.twoslash.json', import.meta.url));
 const { options: compilerOptions, errors } = ts.convertCompilerOptionsFromJson(
-    JSON.parse(readFileSync(tsConfigPath, 'utf8')).compilerOptions,
-    dirname(tsConfigPath)
+    (JSON.parse(readFileSync(tsConfigPath, 'utf8')) as { readonly compilerOptions: unknown })
+        .compilerOptions,
+    Path.dirname(tsConfigPath)
 );
 if (errors.length > 0) {
     throw new Error(ts.formatDiagnostics(errors, ts.createCompilerHost({})));
@@ -32,8 +35,11 @@ const srcDir = fileURLToPath(new URL('../src/', import.meta.url));
 /**
  * Writes `/llms.txt` ([llmstxt.org](https://llmstxt.org/)): an index of the site for AI agents,
  * with every post. Generated from the posts, so it lists exactly what the site does.
+ *
+ * @param outDir - the build's output directory
+ * @param posts - every post, newest first
  */
-const writeLlmsTxt = (outDir: string, posts: readonly Post[]): void => {
+const writeLlmsTxt = async (outDir: string, posts: readonly Post[]): Promise<void> => {
     const lines = [
         `# ${title}`,
         '',
@@ -48,7 +54,7 @@ const writeLlmsTxt = (outDir: string, posts: readonly Post[]): void => {
                 `- [${postTitle}](${siteUrl}${url.slice(1)}) (${date}): ${description}`
         ),
     ];
-    writeFileSync(join(outDir, 'llms.txt'), `${lines.join('\n')}\n`);
+    await writeFile(Path.join(outDir, 'llms.txt'), `${lines.join('\n')}\n`);
 };
 
 export default defineConfig({
@@ -99,7 +105,7 @@ export default defineConfig({
     },
     async buildEnd({ outDir }) {
         const posts = await createPostsLoader().load();
-        writeLlmsTxt(outDir, posts);
+        await writeLlmsTxt(outDir, posts);
         await writeFeed(outDir, srcDir, siteUrl, blogTitle, blogDescription, posts);
     },
     themeConfig: {

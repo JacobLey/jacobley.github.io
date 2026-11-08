@@ -8,7 +8,35 @@ autoInstallPeers: false
 minimumReleaseAge: 10080
 # Fail if a package's publish trust level (e.g. provenance) drops compared to earlier versions
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  # An old release published by the same maintainers without provenance, after a newer major had it (eslint
+  # plugins still depend on semver 6)
+  - semver@6.3.1
 # Transitive dependencies may only come from the registry (no git/tarball URLs)
 blockExoticSubdeps: true
 # Fail on unapproved dependency build scripts instead of silently skipping them
 strictDepBuilds: true
+
+# Our own packages, first published 2026-11-06/07: exempt from the release-age wait while they're new. Drop this
+# exclusion after 2026-11-14, once their installed versions are 7 days old.
+minimumReleaseAgeExclude:
+  - '@leyman/configs'
+  - '@leyman/eslint-config'
+
+# Where pnpm links the skills that approved dependencies ship. Not .claude/skills too: it is a link to this one
+skills:
+  dirs:
+    - .agents/skills
+# Dependencies whose shipped skills pnpm links
+permissions:
+  '@leyman/eslint-config':
+    skills: true
+  '@leyman/configs':
+    skills: true
+
+peerDependencyRules:
+  allowedVersions:
+    # No release declares ESLint 10 yet, but they run on it (`@leyman/eslint-config` adapts eslint-plugin-react's rules).
+    # Remove once they do: jsx-eslint/eslint-plugin-jsx-a11y#1081 and jsx-eslint/eslint-plugin-react#4022.
+    eslint-plugin-jsx-a11y>eslint: '10'
+    eslint-plugin-react>eslint: '10'

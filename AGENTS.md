@@ -4,7 +4,7 @@ Jacob Ley's blog: a [VitePress](https://vitepress.dev/) site, deployed to GitHub
 
 This file is the entry point for any coding agent; `CLAUDE.md` is a symlink to it. Agent-focused documentation lives in `SKILL.md` files under `.agents/skills/`, listed below; `.claude/skills` links there for Claude Code.
 
-The setup follows the patterns of [leyman](https://github.com/JacobLey/leyman), taken only where this site needs them. Its [principles](https://jacobley.github.io/leyman/framework/principles) decide anything no skill covers.
+The setup follows the patterns of [leyman](https://github.com/JacobLey/leyman), taken only where this site needs them. Its [principles](https://jacobley.github.io/leyman/framework/principles) decide anything no skill covers. Formatting and lint come from leyman's published configs: `biome.json` and `tsconfig.json` extend `@leyman/configs`, and `eslint.config.js` is `@leyman/eslint-config`'s.
 
 ## Layout
 
@@ -25,13 +25,13 @@ Never add a top-level `leyman/` path (or any other project site's name): it woul
 
 ## Commands
 
-| Command          | What it does                                                   |
-| ---------------- | -------------------------------------------------------------- |
-| `pnpm dev`       | Dev server on port 5173                                        |
-| `pnpm run lint`  | Biome (formatting) and vue-tsc (types of the site's own code)  |
-| `pnpm run fix`   | Applies Biome's formatting                                     |
-| `pnpm run build` | Builds to `dist/`, type-checking every `ts` block in the posts |
-| `pnpm run check` | Lint, then build: what CI runs                                 |
+| Command          | What it does                                                          |
+| ---------------- | --------------------------------------------------------------------- |
+| `pnpm dev`       | Dev server on port 5173                                               |
+| `pnpm run lint`  | Biome (formatting), ESLint and vue-tsc (types of the site's own code) |
+| `pnpm run fix`   | Applies ESLint's safe fixes, then Biome's formatting                  |
+| `pnpm run build` | Builds to `dist/`, type-checking every `ts` block in the posts        |
+| `pnpm run check` | Lint, then build: what CI runs                                        |
 
 Run `pnpm run check` before anything hard to undo (a merge, a push).
 
@@ -50,3 +50,7 @@ Short subject, reasoning in the body, no attribution trailers: see the commit-me
 | Writing and publishing a post  | [`.agents/skills/blog-posts/SKILL.md`](./.agents/skills/blog-posts/SKILL.md)           |
 | Writing commit messages        | [`.agents/skills/commit-messages/SKILL.md`](./.agents/skills/commit-messages/SKILL.md) |
 | Worktrees and the devcontainer | [`.agents/skills/worktrees/SKILL.md`](./.agents/skills/worktrees/SKILL.md)             |
+| Lint rules and disabling one   | `eslint-config`, linked by pnpm from `@leyman/eslint-config`                           |
+| The principles behind it all   | `principles`, linked by pnpm from `@leyman/configs`                                    |
+
+pnpm links the skills that leyman's packages ship into `.agents/skills` on install (approved under `permissions` in `pnpm-workspace.yaml`), so they change with the installed version. The links aren't committed.

@@ -23,6 +23,9 @@ export interface Post {
 
 /**
  * YAML reads an unquoted `2026-11-07` as a Date (at midnight UTC), so both forms are accepted.
+ *
+ * @param value - the frontmatter's `date`
+ * @returns the date as `YYYY-MM-DD`, or `undefined` when it is neither form
  */
 const toDate = (value: unknown): string | undefined => {
     const date = value instanceof Date ? value.toISOString().slice(0, 10) : value;
@@ -33,8 +36,10 @@ const toDate = (value: unknown): string | undefined => {
  * Loads every post (not the `/blog/` index), newest first. Fails, in the dev server and the build,
  * when a post's frontmatter is incomplete, names a leyman package `leyman.ts` doesn't list, or the post is
  * missing `<PostHeader />` under its title.
+ *
+ * @returns the loader, for a data loader file's default export or a direct `load()`
  */
-export const createPostsLoader = () =>
+export const createPostsLoader = (): ReturnType<typeof createContentLoader<Post[]>> =>
     createContentLoader('blog/*.md', {
         includeSrc: true,
         transform(pages): Post[] {

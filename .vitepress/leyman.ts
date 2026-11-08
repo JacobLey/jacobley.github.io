@@ -15,6 +15,9 @@ export const leymanPackages: ReadonlyMap<string, string> = new Map([
 
 /**
  * A package's page on the leyman docs site, and its title there.
+ *
+ * @param slug - the package's slug, as in `leymanPackages`
+ * @returns the link, titled by the slug when the package isn't listed
  */
 export const packageLink = (slug: string): { readonly text: string; readonly link: string } => ({
     text: leymanPackages.get(slug) ?? slug,

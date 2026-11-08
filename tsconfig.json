@@ -1,25 +1,17 @@
 {
-  "//": "Type-checks the site's own code (config, feed, theme) with vue-tsc. Code blocks in posts are checked by twoslash, with tsconfig.twoslash.json.",
+  "//": "Type-checks the site's own code (config, feed, theme) with vue-tsc, and gives ESLint its types. Code blocks in posts are checked by twoslash, with tsconfig.twoslash.json. The shared build config emits declarations for project references; the site emits nothing.",
+  "extends": "@leyman/configs/tsconfig.build.json",
   "compilerOptions": {
-    "allowImportingTsExtensions": false,
-    "exactOptionalPropertyTypes": true,
-    "lib": [
-      "DOM",
-      "ESNext"
-    ],
-    "module": "NodeNext",
-    "moduleResolution": "nodenext",
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "incremental": false,
     "noEmit": true,
-    "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "target": "ESNext",
-    "types": [
-      "node"
-    ],
-    "verbatimModuleSyntax": true
+    "sourceMap": false
   },
   "include": [
+    "eslint.config.js",
     ".vitepress/**/*.ts",
     ".vitepress/**/*.vue"
   ],
