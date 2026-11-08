@@ -1,0 +1,44 @@
+# MAIN_CHECKOUT, WORKTREES_DIR, REPO_NAME and WORKTREE_NAME come from `.devcontainer/.env`, written by `initialize.sh`
+# (the devcontainer `initializeCommand`).
+
+services:
+  site:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    volumes:
+      # Mounted at the identical host paths so git worktree links work on both sides
+      - ${MAIN_CHECKOUT:?run .devcontainer/initialize.sh}:${MAIN_CHECKOUT}:delegated
+      - ${WORKTREES_DIR:?run .devcontainer/initialize.sh}:${WORKTREES_DIR}:delegated
+
+    environment:
+      CLAUDE_CONFIG_DIR: ${WORKTREES_DIR}/.shared/claude-config
+      # `gh auth login` once, in any worktree, logs in every one
+      GH_CONFIG_DIR: ${WORKTREES_DIR}/.shared/gh-config
+      # Every worktree installs from one shared store
+      pnpm_config_store_dir: ${WORKTREES_DIR}/.shared/pnpm-store
+
+    # Joins the machine's shared HTTPS ingress, when one runs (leyman's `tools/local-ingress`), which serves
+    # https://<worktree>.<repo>.localhost from port 5173, where `pnpm dev` listens: one web port per container, so
+    # worktrees never clash. `upstreams` is this container's address on the ingress network.
+    networks:
+      - default
+      - local-ingress
+    labels:
+      caddy: ${WORKTREE_NAME:?run .devcontainer/initialize.sh}.${REPO_NAME:?run .devcontainer/initialize.sh}.localhost
+      caddy.reverse_proxy: '{{upstreams 5173}}'
+      caddy.tls: internal
+    # Without the ingress, the dev server is reached through the editor's port forwarding instead
+    expose:
+      - '5173'
+
+    # Overrides default command so things don't shut down after the process ends.
+    command:
+      - sleep
+      - infinity
+
+networks:
+  # Created by `initialize.sh` when missing, shared by every repo's devcontainers
+  local-ingress:
+    external: true

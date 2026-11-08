@@ -1,0 +1,32 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.base.schema.json",
+  "name": "jacobley.github.io",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "site",
+  "initializeCommand": "sh .devcontainer/initialize.sh",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "remoteUser": "dev",
+
+  "remoteEnv": {
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "core.fsmonitor",
+    "GIT_CONFIG_VALUE_0": "false",
+    "PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/node_modules/.bin"
+  },
+
+  "postCreateCommand": {
+    "pnpm": "pnpm install --frozen-lockfile --config.confirmModulesPurge=false"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "biomejs.biome",
+        "github.vscode-github-actions",
+        "redhat.vscode-yaml",
+        "Vue.volar"
+      ]
+    }
+  }
+}

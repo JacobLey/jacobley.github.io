@@ -1,0 +1,45 @@
+{
+  "biome.lsp.bin": "node_modules/.bin/biome",
+
+  "editor.formatOnSave": true,
+
+  // Builds rewrite these, so watching them only adds work
+  "files.watcherExclude": {
+    "**/dist/**": true,
+    "**/node_modules/.vitepress/**": true
+  },
+
+  "js/ts.preferences.quoteStyle": "single",
+  "js/ts.preferences.importModuleSpecifierEnding": "js",
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.tabSize": 4,
+    "files.insertFinalNewline": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.tabSize": 2,
+    "files.insertFinalNewline": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.tabSize": 2,
+    "files.insertFinalNewline": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "files.insertFinalNewline": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.tabSize": 4,
+    "files.insertFinalNewline": true
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.tabSize": 2,
+    "files.insertFinalNewline": true
+  }
+}

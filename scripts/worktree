@@ -1,0 +1,257 @@
+#!/usr/bin/env bash
+#
+# Manage git worktrees in <main checkout>-worktrees/, each opened in its own devcontainer.
+# Intended to run on the HOST (macOS bash 3.2 compatible). See .agents/skills/worktrees/SKILL.md.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/worktree <command> [args]
+
+Commands:
+  new <branch> [--from <base>] [--no-open]
+        Create a worktree for <branch> in <main checkout>-worktrees/ and open it in
+        your editor's devcontainer. Checks out <branch> if it exists, otherwise
+        creates it from <base> (default: the current HEAD). --no-open only prints.
+  open <branch|path> [--local] [--print]
+        Open a worktree in your editor, directly inside its devcontainer
+        (--local: open on the host instead; --print: only print the link).
+  up <branch|path>
+        Start a worktree's devcontainer without an editor (needs the devcontainer
+        CLI: npm install -g @devcontainers/cli).
+  shell <branch|path> [command...]
+        Run a shell (or command) in a worktree's devcontainer, starting it if needed.
+  rm <branch|path> [--delete-branch] [--force]
+        Stop the worktree's devcontainer, remove the worktree, and optionally
+        delete its branch.
+  list
+        List worktrees.
+
+Editor (WORKTREE_EDITOR env var):
+  vscode (default)  Print a Cmd+clickable vscode:// link and open it via the OS
+                    (macOS `open`, Linux `xdg-open`). VS Code asks to confirm.
+  none              Only print the worktree path; use `up`/`shell` or your IDE's
+                    dev container support.
+EOF
+}
+
+die() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+common_dir="$(git rev-parse --path-format=absolute --git-common-dir)" ||
+    die 'not inside a git repository'
+main_checkout="$(dirname "$common_dir")"
+worktrees_dir="${main_checkout}-worktrees"
+
+# Branch names may contain `/`; directories may not
+worktree_path() {
+    case "$1" in
+    /*) echo "$1" ;;
+    *) echo "$worktrees_dir/$(echo "$1" | tr '/' '-')" ;;
+    esac
+}
+
+in_container() {
+    [ -n "${REMOTE_CONTAINERS:-}" ] || [ -f /.dockerenv ]
+}
+
+# Prints the worktree's editor URL, then hands it to the OS unless `launch` is false.
+# Editors are just URL formats (from WORKTREE_EDITOR); add new ones as cases here.
+open_worktree() {
+    local path="$1" local_only="$2" launch="$3"
+    local editor="${WORKTREE_EDITOR:-vscode}" url
+    case "$editor" in
+    vscode)
+        if [ "$local_only" = true ]; then
+            url="vscode://file${path}/"
+        else
+            # The devcontainer mounts the worktree at its host path, so the
+            # container workspace folder is the same path.
+            local hex
+            hex="$(printf '%s' "$path" | od -An -tx1 | tr -d ' \n')"
+            url="vscode://vscode-remote/dev-container+${hex}${path}"
+        fi
+        ;;
+    none)
+        echo "Start its devcontainer with: scripts/worktree up $path"
+        return
+        ;;
+    *) die "unknown WORKTREE_EDITOR '$editor' (expected: vscode, none)" ;;
+    esac
+
+    echo "Open: $url"
+    if [ "$launch" = true ] && ! in_container; then
+        open_url "$url"
+    fi
+}
+
+# The editor may ask to confirm, since the URL comes from an external application
+open_url() {
+    if command -v open >/dev/null && [ "$(uname)" = Darwin ]; then
+        open "$1"
+    elif command -v xdg-open >/dev/null; then
+        xdg-open "$1" >/dev/null 2>&1
+    else
+        echo "Click the link above to open it." >&2
+    fi
+}
+
+# Resolves <branch|path> to an existing worktree directory
+existing_worktree() {
+    [ -n "$1" ] || die 'missing <branch|path>'
+    local path
+    path="$(worktree_path "$1")"
+    [ -d "$path" ] || die "$path does not exist"
+    echo "$path"
+}
+
+require_devcontainer_cli() {
+    command -v devcontainer >/dev/null ||
+        die "devcontainer CLI not found (npm install -g @devcontainers/cli)"
+}
+
+cmd_new() {
+    local branch='' base=HEAD open=true
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        --from) base="${2:?--from requires a value}"; shift 2 ;;
+        --no-open) open=false; shift ;;
+        -*) die "unknown option $1" ;;
+        *) [ -z "$branch" ] || die 'only one branch allowed'; branch="$1"; shift ;;
+        esac
+    done
+    [ -n "$branch" ] || die 'missing <branch>'
+
+    local path
+    path="$(worktree_path "$branch")"
+    [ ! -e "$path" ] || die "$path already exists"
+
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+        git worktree add "$path" "$branch"
+    else
+        git worktree add -b "$branch" "$path" "$base"
+    fi
+    echo "Created $path"
+
+    open_worktree "$path" false "$open"
+}
+
+cmd_open() {
+    local target='' local_only=false launch=true
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        --local) local_only=true; shift ;;
+        --print) launch=false; shift ;;
+        -*) die "unknown option $1" ;;
+        *) target="$1"; shift ;;
+        esac
+    done
+    local path
+    path="$(existing_worktree "$target")"
+    open_worktree "$path" "$local_only" "$launch"
+}
+
+cmd_up() {
+    [ $# -le 1 ] || die 'usage: scripts/worktree up <branch|path>'
+    require_devcontainer_cli
+    local path
+    path="$(existing_worktree "${1:-}")"
+    devcontainer up --workspace-folder "$path"
+    echo "Shell into it with: scripts/worktree shell $path"
+    print_url "$path"
+}
+
+# The worktree's URL through the local ingress (leyman's tools/local-ingress), from the names `initialize.sh` wrote
+print_url() {
+    local env="$1/.devcontainer/.env" repo worktree port=''
+    [ -f "$env" ] || return 0
+    repo="$(sed -n 's/^REPO_NAME="\(.*\)"$/\1/p' "$env")"
+    worktree="$(sed -n 's/^WORKTREE_NAME="\(.*\)"$/\1/p' "$env")"
+    [ -n "$repo" ] && [ -n "$worktree" ] || return 0
+    case "${LOCAL_INGRESS_HTTPS_PORT:-443}" in
+    443) ;;
+    *) port=":$LOCAL_INGRESS_HTTPS_PORT" ;;
+    esac
+    echo "Its dev server (port 5173) is at https://$worktree.$repo.localhost$port"
+    echo "First time? Trust the local CA: http://ingress.localhost${LOCAL_INGRESS_HTTP_PORT:+:$LOCAL_INGRESS_HTTP_PORT}"
+}
+
+cmd_shell() {
+    require_devcontainer_cli
+    local path
+    path="$(existing_worktree "${1:-}")"
+    shift
+    # `up` is a no-op when the container is already running
+    devcontainer up --workspace-folder "$path" >/dev/null
+    if [ $# -eq 0 ]; then
+        set -- bash -l
+    fi
+    devcontainer exec --workspace-folder "$path" "$@"
+}
+
+stop_devcontainer() {
+    local path="$1"
+    if ! command -v docker >/dev/null; then
+        echo "warning: docker not found, skipping devcontainer cleanup" >&2
+        return
+    fi
+    local project
+    project="$(docker ps -aq --filter "label=devcontainer.local_folder=$path" |
+        xargs -r docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' |
+        sort -u)"
+    if [ -n "$project" ]; then
+        echo "Stopping devcontainer ($project)"
+        docker compose -p "$project" down
+    fi
+}
+
+cmd_rm() {
+    local target='' delete_branch=false force=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        --delete-branch) delete_branch=true; shift ;;
+        --force) force=true; shift ;;
+        -*) die "unknown option $1" ;;
+        *) target="$1"; shift ;;
+        esac
+    done
+    local path
+    path="$(existing_worktree "$target")"
+    [ "$path" != "$main_checkout" ] || die 'refusing to remove the main checkout'
+    if [ "$path" = "$(git rev-parse --show-toplevel)" ]; then
+        die 'refusing to remove the worktree you are in (and possibly its running container)'
+    fi
+
+    local branch
+    branch="$(git -C "$path" branch --show-current)"
+
+    stop_devcontainer "$path"
+
+    if [ "$force" = true ]; then
+        git worktree remove --force "$path"
+    else
+        git worktree remove "$path"
+    fi
+
+    if [ "$delete_branch" = true ] && [ -n "$branch" ]; then
+        if [ "$force" = true ]; then
+            git branch -D "$branch"
+        else
+            git branch -d "$branch"
+        fi
+    fi
+}
+
+case "${1:-}" in
+new) shift; cmd_new "$@" ;;
+open) shift; cmd_open "$@" ;;
+up) shift; cmd_up "$@" ;;
+shell) shift; cmd_shell "$@" ;;
+rm) shift; cmd_rm "$@" ;;
+list) git worktree list ;;
+-h | --help | help | '') usage ;;
+*) usage >&2; exit 1 ;;
+esac
