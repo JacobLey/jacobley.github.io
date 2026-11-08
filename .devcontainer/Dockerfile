@@ -56,5 +56,5 @@ COPY --from=pnpm --chown=$USER:$USER $PNPM_HOME $PNPM_HOME
 ENV PATH="$PNPM_HOME/bin:$PATH"
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 
-# The site's own binaries (vitepress, biome) are on PATH via `remoteEnv` in devcontainer.json, since the workspace
-# path differs per worktree.
+# The site's own binaries (vitepress, biome) and `scripts/commands` are on PATH via `remoteEnv` in devcontainer.json,
+# since the workspace path differs per worktree.

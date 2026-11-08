@@ -11,7 +11,7 @@
     "GIT_CONFIG_COUNT": "1",
     "GIT_CONFIG_KEY_0": "core.fsmonitor",
     "GIT_CONFIG_VALUE_0": "false",
-    "PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/node_modules/.bin"
+    "PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/node_modules/.bin:${containerWorkspaceFolder}/scripts/commands"
   },
 
   "postCreateCommand": {

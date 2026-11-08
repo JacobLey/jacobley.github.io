@@ -17,6 +17,8 @@ The setup follows the patterns of [leyman](https://github.com/JacobLey/leyman), 
 | `.vitepress/leyman.ts`     | The leyman docs site's URL and the packages posts may name                              |
 | `.vitepress/theme/`        | `<BlogPosts />` and `<PostHeader />`                                                    |
 | `.devcontainer/`           | Node.js and pnpm only                                                                   |
+| `scripts/worktree`         | Creates and opens worktrees, from the host                                              |
+| `scripts/commands/`        | On the container's `PATH`; `yolo-claude` is the agent without prompts                   |
 | `.github/workflows/ci.yml` | Lint and build on every PR and push; deploy from `main`                                 |
 
 Never add a top-level `leyman/` path (or any other project site's name): it would shadow https://jacobley.github.io/leyman/.
