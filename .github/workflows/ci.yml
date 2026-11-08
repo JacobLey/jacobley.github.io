@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  # Never run PR code from `pull_request_target` or `workflow_run`: they run with main's token and secrets
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  # Superseded PR pushes are canceled; every commit to main gets its own run
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  # Lints and builds the site. On main, also hands the build to `deploy`
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The version comes from `packageManager` in package.json
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # Keep in sync with `NODE_IMAGE` in `.devcontainer/Dockerfile`
+          node-version: 26.13.0
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      # Also type-checks every `ts` block in the posts (twoslash)
+      - name: Build
+        run: pnpm run build
+
+      - name: Upload site
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ./dist
+
+  # Deploys main's build to GitHub Pages
+  deploy:
+    needs: check
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Runs queue rather than cancel, so a deploy is never cut off halfway
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # Deploy to Pages, authenticated with OIDC
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # Skips the deploy once main has moved on, since the newer commit's run deploys instead, before or after this
+      # one. Checked inside the concurrency group, which runs one deploy at a time
+      - name: Check for a newer commit
+        id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipped: main has moved on to $tip, whose run deploys instead"
+          fi
+
+      - name: Deploy
+        if: ${{ steps.tip.outputs.current == 'true' }}
+        id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
