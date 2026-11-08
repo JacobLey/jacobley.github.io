@@ -5,7 +5,7 @@
   "service": "site",
   "initializeCommand": "sh .devcontainer/initialize.sh",
   "workspaceFolder": "${localWorkspaceFolder}",
-  "remoteUser": "dev",
+  "remoteUser": "jacobley",
 
   "remoteEnv": {
     "GIT_CONFIG_COUNT": "1",

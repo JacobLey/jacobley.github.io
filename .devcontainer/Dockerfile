@@ -18,7 +18,8 @@ FROM ${BASE_IMAGE} AS base
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install vim -y
-ARG USER=dev
+# The account everything runs as, named after its owner. Keep in sync with `remoteUser` in devcontainer.json
+ARG USER=jacobley
 RUN adduser $USER && \
     echo $USER:$USER | chpasswd && \
     adduser $USER sudo
