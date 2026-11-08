@@ -62,6 +62,14 @@ export default defineConfig({
     cleanUrls: true,
     lastUpdated: false,
     head: [
+        // Search Console's ownership check for the https://jacobley.github.io/ property
+        [
+            'meta',
+            {
+                name: 'google-site-verification',
+                content: 'kpt0sH4Vqc3ICu7HCEQyGQESqJ3OfiKaGGSbo2VCu18',
+            },
+        ],
         [
             'link',
             {
