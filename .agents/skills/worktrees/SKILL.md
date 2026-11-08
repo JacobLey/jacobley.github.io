@@ -19,11 +19,14 @@ Do all development in a git worktree, each opened in its own devcontainer. The m
       claude-config/             <- CLAUDE_CONFIG_DIR
       gh-config/                 <- GH_CONFIG_DIR (`gh auth login` once for every worktree)
       plans/                     <- plans shared by every worktree (`<worktree>/plans` links here, gitignored)
+  .claude-shared/                <- shared with every repo's devcontainers (leyman's too)
+    settings.json                <- `claude-config/settings.json` links here
+    CLAUDE.md                    <- `claude-config/CLAUDE.md` links here: user-level instructions
 ```
 
-Every devcontainer mounts both folders at their host paths, so git's absolute worktree links resolve on both sides. [`.devcontainer/initialize.sh`](../../../.devcontainer/initialize.sh) runs on the host first: it refuses a folder that is neither the main checkout nor a child of `<main>-worktrees/`, creates `.shared/`, links `plans`, and writes `.devcontainer/.env` (paths, a compose project name per worktree, and the worktree's DNS names).
+Every devcontainer mounts all three folders at their host paths, so git's absolute worktree links resolve on both sides. [`.devcontainer/initialize.sh`](../../../.devcontainer/initialize.sh) runs on the host first: it refuses a folder that is neither the main checkout nor a child of `<main>-worktrees/`, creates `.shared/`, links `plans`, links Claude's settings and `CLAUDE.md` into `.claude-shared/` (moving this repo's in when the shared folder has none, warning when both exist), and writes `.devcontainer/.env` (paths, a compose project name per worktree, and the worktree's DNS names).
 
-The container has Node.js and pnpm (the site's toolchain), gh, Python (for ad-hoc scripts), zsh with oh-my-zsh, and Claude Code. `node_modules` is per worktree; the pnpm store is shared. `scripts/commands` is on `PATH` (via `remoteEnv`): `yolo-claude` runs Claude Code without permission prompts, which is only safe inside the container.
+The container has Node.js and pnpm (the site's toolchain), gh, Python (for ad-hoc scripts), zsh with oh-my-zsh, and Claude Code. `node_modules` is per worktree; the pnpm store is shared. Claude's memory is per repo; preferences that apply across repos go in `.claude-shared/CLAUDE.md`. `scripts/commands` is on `PATH` (via `remoteEnv`): `yolo-claude` runs Claude Code without permission prompts, which is only safe inside the container.
 
 ## Dev server
 
