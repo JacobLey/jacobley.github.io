@@ -4,7 +4,7 @@
 # Declare each ARG in the stage that uses it, right before its first use: a changed ARG reruns every RUN after its
 # declaration in that stage. ARGs before the first FROM are only for FROM lines.
 #
-# Only Node.js and pnpm, the site's toolchain, plus gh and Claude Code for working in the repository.
+# Only Node.js and pnpm, the site's toolchain, plus gh, oh-my-zsh and Claude Code for working in the repository.
 
 # https://github.com/devcontainers/images/blob/main/src/base-debian/history
 ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:2.2.1-debian13@sha256:1f851004adcd3dff3776b4a1da86727cf52280b0fdc9d5b0568c9c7d74274286
@@ -39,6 +39,9 @@ RUN wget "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VE
     && rm /tmp/gh.tar.gz
 
 FROM base
+
+# Install oh-my-zsh https://ohmyz.sh/
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 # Install Claude
 # CLAUDE_CONFIG_DIR is set in docker-compose.yml so config is shared across worktrees
