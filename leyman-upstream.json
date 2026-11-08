@@ -1,0 +1,27 @@
+{
+  "$comment": "What this repository took from leyman, and the commit it was taken at. From a checkout of leyman, `node leyman/main/scripts/fork-manifest.mjs drift --fork <this repository>` lists what changed upstream since, and `resync` records that it has caught up.",
+  "repository": "https://github.com/JacobLey/leyman",
+  "with": [
+    "ci"
+  ],
+  "packages": [],
+  "files": [
+    ".agents/skills/.gitignore",
+    ".agents/skills/commit-messages/SKILL.md",
+    ".agents/skills/worktrees/SKILL.md",
+    ".claude/skills",
+    ".devcontainer/.dockerignore",
+    ".devcontainer/Dockerfile",
+    ".devcontainer/devcontainer.json",
+    ".devcontainer/docker-compose.yml",
+    ".devcontainer/initialize.sh",
+    ".devcontainer/names.sh",
+    ".github/workflows/ci.yml",
+    ".vscode/settings.json",
+    ".vscode/tasks.json",
+    "pnpm-workspace.yaml",
+    "scripts/commands/yolo-claude",
+    "scripts/worktree"
+  ],
+  "commit": "62c57102d79ff4cb3a4ac7224632537efa6cd623"
+}

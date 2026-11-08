@@ -4,7 +4,7 @@ Jacob Ley's blog: a [VitePress](https://vitepress.dev/) site, deployed to GitHub
 
 This file is the entry point for any coding agent; `CLAUDE.md` is a symlink to it. Agent-focused documentation lives in `SKILL.md` files under `.agents/skills/`, listed below; `.claude/skills` links there for Claude Code.
 
-The setup follows the patterns of [leyman](https://github.com/JacobLey/leyman), taken only where this site needs them. Its [principles](https://jacobley.github.io/leyman/framework/principles) decide anything no skill covers. Formatting and lint come from leyman's published configs: `biome.json` and `tsconfig.json` extend `@leyman/configs`, and `eslint.config.js` is `@leyman/eslint-config`'s.
+The setup follows the patterns of [leyman](https://github.com/JacobLey/leyman), taken only where this site needs them. Its [principles](https://jacobley.github.io/leyman/framework/principles) decide anything no skill covers. `leyman-upstream.json` records the leyman commit the devcontainer, worktree scripts, CI and copied skills were last synced with: from a leyman checkout, `node leyman/main/scripts/fork-manifest.mjs drift --fork <this repository>` lists what changed there since, and `resync` records catching up. Formatting and lint come from leyman's published configs: `biome.json` and `tsconfig.json` extend `@leyman/configs`, and `eslint.config.js` is `@leyman/eslint-config`'s.
 
 ## Layout
 
