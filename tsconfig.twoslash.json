@@ -1,0 +1,17 @@
+{
+  "//": "Compiler options for type-checking code blocks with twoslash. Separate from tsconfig.json, whose types and includes are for the site itself.",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    "types": []
+  }
+}

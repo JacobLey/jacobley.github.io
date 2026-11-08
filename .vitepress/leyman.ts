@@ -1,0 +1,22 @@
+/**
+ * Where the leyman project's docs site is published, as a project site beside this one.
+ */
+export const leymanUrl = 'https://jacobley.github.io/leyman/';
+
+/**
+ * The leyman packages a post may name in its `packages` frontmatter, by their slug on the leyman
+ * docs site (`/leyman/packages/<slug>/`), with the title that site gives them. Add a package here
+ * when a post is first about it.
+ */
+export const leymanPackages: ReadonlyMap<string, string> = new Map([
+    ['genever', 'genever'],
+    ['juniper', 'Juniper'],
+]);
+
+/**
+ * A package's page on the leyman docs site, and its title there.
+ */
+export const packageLink = (slug: string): { readonly text: string; readonly link: string } => ({
+    text: leymanPackages.get(slug) ?? slug,
+    link: `${leymanUrl}packages/${slug}/`,
+});

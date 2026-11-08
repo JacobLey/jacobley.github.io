@@ -1,0 +1,32 @@
+{
+  "name": "jacobley.github.io",
+  "version": "0.0.0",
+  "description": "Jacob Ley's blog, built with VitePress and deployed to GitHub Pages from main.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "packageManager": "pnpm@12.15.0",
+  "author": "JacobLey",
+  "license": "UNLICENSED",
+  "repository": "JacobLey/jacobley.github.io",
+  "homepage": "https://jacobley.github.io/",
+  "scripts": {
+    "build": "vitepress build",
+    "check": "pnpm run lint && pnpm run build",
+    "dev": "vitepress dev --host 0.0.0.0 --port 5173",
+    "fix": "biome check --write .",
+    "lint": "biome ci . && vue-tsc --noEmit",
+    "preview": "vitepress preview --host 0.0.0.0 --port 5173"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@shikijs/vitepress-twoslash": "^4.5.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3",
+    "vitepress": "2.0.0-alpha.20",
+    "vue": "^3.5.44",
+    "vue-tsc": "^3.3.13"
+  }
+}
