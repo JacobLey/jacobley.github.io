@@ -88,9 +88,6 @@ if !errors.Is(err, kind) || !errors.As(err, &geneverErr) || geneverErr.Pointer !
 
 Moving the cases out of the TypeScript tests made those tests stricter too. They had checked the error's class but not the pointer. And the whole suite had run as OpenAPI 3.0, which hid that one check (`exclusiveMaximum`) behaved differently outside it; now only the two cases that need OpenAPI 3.0 run as it ([commit](https://github.com/JacobLey/leyman/commit/b6fd7cf3)).
 
-<!-- Author to fill: cut in the AI audit as a paragraph with no payoff. Restore it if either ordering case failed when the Go port first ran it (the history doesn't say):
-genever stops at the first error, so a schema with two problems has to report the same one first in every language. Two cases pin that. In one, an OpenAPI operation has invalid response headers and a parameter whose `$ref` leads to an invalid component; the pointer must be the component's, because a parameter's schema is followed first (for its default). In the other, a parameter and a component both have an unknown keyword, and the parameter's must be reported, because operations are read before components. -->
-
 ## What the vectors caught
 
 generated-signature's vectors cover the places where Go and JavaScript disagree by default: what JavaScript's `\s` and `trim()` count as whitespace, Node.js's `extname`, lowercase `İ`, the byte order mark `TextDecoder` drops, and `JSON.stringify`'s escaping. One case lists five manifest keys, `Z`, `a`, `é`, `😀` and `￿`, in that order. JavaScript compares strings by UTF-16 code unit, so the emoji (a surrogate pair starting at `0xD83D`) sorts before `￿`. Go compares UTF-8 bytes, where `￿` comes first. A manifest written by one would look edited to the other, so the Go code sorts by `utf16.Encode`.
@@ -113,7 +110,7 @@ In the run of November 11, 2026:
 | go-jsonschema | 0.24.1                      | 13 / 18            |                |
 | oapi-codegen  | 2.8.2 (kin-openapi 0.152.0) |                    | 5 / 7          |
 
-<!-- Author to fill: anything first-hand about the comparison. go-jsonschema's misses: null not kept apart from absent, a null enum member, and it accepts a tuple with a string member, a oneOf branch with a wrongly typed property, and a patternProperties value of the wrong type. oapi-codegen's: it accepts a tuple with a string member, and doesn't keep null apart from absent in a mixed enum. Before kin-openapi 0.152.0 its loader rejected the 3.1 document (0 / 7). -->
+go-jsonschema's type doesn't keep `null` apart from an absent property, can't hold `null` as a member of a mixed enum, and decodes three values it should reject: a tuple with a string member, a `oneOf` branch with a property of the wrong type, and a `patternProperties` value of the wrong type. oapi-codegen's type decodes the tuple with a string member and doesn't keep `null` apart from absent in a mixed enum. Before kin-openapi 0.152.0, oapi-codegen's loader rejected the 3.1 document outright, so it scored 0 / 7.
 
 ## Try it
 
