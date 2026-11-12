@@ -9,8 +9,10 @@ export const leymanUrl = 'https://jacobley.github.io/leyman/';
  * when a post is first about it.
  */
 export const leymanPackages: ReadonlyMap<string, string> = new Map([
+    ['generated-signature', 'generated-signature'],
     ['genever', 'genever'],
     ['juniper', 'Juniper'],
+    ['populate-files', 'populate-files'],
 ]);
 
 /**
