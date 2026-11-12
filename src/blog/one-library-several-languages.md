@@ -17,7 +17,7 @@ go get -tool github.com/JacobLey/leyman/apps/genever/go/cmd/genever@v0.1.0
 
 It reads the same schemas, has the same strict mode, and rejects the same bad schemas with the same kind of error at the same JSON Pointer. It writes Go structs instead of TypeScript types. Two of genever's dependencies came along, because the Go command has to sign its output and keep a manifest the way the TypeScript one does: [populate-files](https://jacobley.github.io/leyman/packages/populate-files/) and [generated-signature](https://jacobley.github.io/leyman/packages/generated-signature/) are Go modules now too, released at the same version.
 
-This was a continued pattern of my adoption of Go, which forces language-agnostic support for common functionality (in this case, type-ifying JSON Schema + OpenAPI).
+This continues a pattern in my adoption of Go, which forces language-agnostic support for common functionality (in this case, type-ifying JSON Schema + OpenAPI).
 
 None of the Go code is tested against the TypeScript code. Both are tested against a set of test vectors: inputs and expected outputs, as JSON, that the TypeScript implementation computed once and that are committed to the repository.
 
@@ -110,7 +110,7 @@ In the run of November 11, 2026:
 | go-jsonschema | 0.24.1                      | 13 / 18            |                |
 | oapi-codegen  | 2.8.2 (kin-openapi 0.152.0) |                    | 5 / 7          |
 
-go-jsonschema's type doesn't keep `null` apart from an absent property, can't hold `null` as a member of a mixed enum, and decodes three values it should reject: a tuple with a string member, a `oneOf` branch with a property of the wrong type, and a `patternProperties` value of the wrong type. oapi-codegen's type decodes the tuple with a string member and doesn't keep `null` apart from absent in a mixed enum. Before kin-openapi 0.152.0, oapi-codegen's loader rejected the 3.1 document outright, so it scored 0 / 7.
+go-jsonschema's type doesn't keep `null` apart from an absent property, can't hold `null` as a member of a mixed enum, and decodes three values it should reject: a tuple with a string member, a `oneOf` branch with a property of the wrong type, and a `patternProperties` value of the wrong type. oapi-codegen's type decodes the tuple with a string member and doesn't keep `null` apart from absent in a mixed enum. Before kin-openapi 0.152.0, oapi-codegen's loader rejected the 3.1 document, so it scored 0 / 7.
 
 ## Try it
 
