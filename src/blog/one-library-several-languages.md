@@ -17,7 +17,7 @@ go get -tool github.com/JacobLey/leyman/apps/genever/go/cmd/genever@v0.1.0
 
 It reads the same schemas, has the same strict mode, and rejects the same bad schemas with the same kind of error at the same JSON Pointer. It writes Go structs instead of TypeScript types. Two of genever's dependencies came along, because the Go command has to sign its output and keep a manifest the way the TypeScript one does: [populate-files](https://jacobley.github.io/leyman/packages/populate-files/) and [generated-signature](https://jacobley.github.io/leyman/packages/generated-signature/) are Go modules now too, released at the same version.
 
-<!-- Author to fill: why a Go genever at all. plans/genever/go.md says "Justified by a use in another repo (2026-11-07)". A sentence on what that repo needed. -->
+This was a continued pattern of my adoption of Go, which forces language-agnostic support for common functionality (in this case, type-ifying JSON Schema + OpenAPI).
 
 None of the Go code is tested against the TypeScript code. Both are tested against a set of test vectors: inputs and expected outputs, as JSON, that the TypeScript implementation computed once and that are committed to the repository.
 
