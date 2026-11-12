@@ -3,11 +3,41 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import Path from 'node:path';
 import { createMarkdownRenderer } from 'vitepress';
 
-const escapeXml = (text: string): string =>
+/**
+ * Code points XML 1.0 forbids anywhere in a document, even in CDATA or as a character reference
+ * (https://www.w3.org/TR/xml/#charsets): most C0 controls, lone surrogates, U+FFFE and U+FFFF.
+ */
+const notXmlChar = /[^\t\n\r\u{20}-\u{D7FF}\u{E000}-\u{FFFD}\u{10000}-\u{10FFFF}]/gv;
+
+const HEX = 16;
+const codePointHex = (char: string): string => char.codePointAt(0)!.toString(HEX).toUpperCase();
+
+const escapeXml = (text: string): string => {
+    const invalid = text.match(notXmlChar);
+    if (invalid) {
+        const codePoints = invalid.map(char => `U+${codePointHex(char)}`).join(', ');
+        throw new Error(
+            `${JSON.stringify(text)} has characters XML can't represent: ${codePoints}`
+        );
+    }
     // `&` first: TypeScript rejects any character before it in a `v`-flag class. Sort the class once it
     // doesn't (microsoft/TypeScript#62707)
     // eslint-disable-next-line regexp/sort-character-class-elements -- TypeScript rejects the sorted order, see above
-    text.replaceAll(/[&"'<>]/gv, char => `&#${char.codePointAt(0)!};`);
+    return text.replaceAll(/[&"'<>]/gv, char => `&#${char.codePointAt(0)!};`);
+};
+
+/**
+ * HTML to embed in a CDATA section. Characters XML forbids become HTML character references,
+ * which are plain text to the XML parser and decode back to the same character in HTML
+ * (a post may quote U+FFFF, say). A `]]>` splits the section in two.
+ *
+ * @param html - the rendered HTML
+ * @returns the CDATA section
+ */
+const cdata = (html: string): string =>
+    `<![CDATA[${html
+        .replaceAll(notXmlChar, char => `&#x${codePointHex(char)};`)
+        .replaceAll(']]>', ']]]]><![CDATA[>')}]]>`;
 
 /**
  * The code a reader should see from a twoslash `ts` block: what follows `// ---cut---`, without
@@ -106,7 +136,7 @@ export const writeFeed = async (
       <guid isPermaLink="true">${link}</guid>
       <pubDate>${pubDate}</pubDate>
       <description>${escapeXml(post.description)}</description>
-      <content:encoded><![CDATA[${html.replaceAll(']]>', ']]]]><![CDATA[>')}]]></content:encoded>
+      <content:encoded>${cdata(html)}</content:encoded>
     </item>`;
         })
     );
