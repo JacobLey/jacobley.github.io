@@ -170,11 +170,11 @@ importers:
         specifier: ^2.6.4
         version: 2.6.4
       '@leyman/configs':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.2.1
+        version: 0.2.1
       '@leyman/eslint-config':
-        specifier: ^0.2.0
-        version: 0.2.0(eslint-import-resolver-node@0.4.0)(eslint@10.14.0)(typescript@6.0.3)
+        specifier: ^0.3.0
+        version: 0.3.0(eslint-import-resolver-node@0.4.0)(eslint@10.14.0)(typescript@6.0.3)
       '@shikijs/vitepress-twoslash':
         specifier: ^4.5.0
         version: 4.5.0(typescript@6.0.3)
@@ -483,11 +483,11 @@ packages:
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
 
-  '@leyman/configs@0.2.0':
-    resolution: {integrity: sha512-KqXsZ49qEzM4JALYNnocHBtQcF4/Rf7Us4WodBhcbCqaULsednBPawMSNYyLoH247BNDEqIKhp5mjnDGf/TjPA==}
+  '@leyman/configs@0.2.1':
+    resolution: {integrity: sha512-E9nfxU/Ax9QD+C9QffQU4lQTqv/dehfw6G3LtFCNJGuuwe+A+U4sLMEzyV4zD9F99EWABmKHJ+6KZx8l4nrYhQ==}
 
-  '@leyman/eslint-config@0.2.0':
-    resolution: {integrity: sha512-TOoI3b117WBAvHMTdGJEnJLHNPu75H+sEANILPqN+YSV9yVtE5du4jJ/8TELkxJIL3VLooJd1xP6fk1WJuAIJA==}
+  '@leyman/eslint-config@0.3.0':
+    resolution: {integrity: sha512-C/huLI1EIKqhjFk/SKVOHe8KOvfqkH15zq84bjOeQ8Ip56s/J50BQXqMO18Q9ga5AdxZ42FUWI++I0lXC49tJg==}
     engines: {node: '>=24.15.0'}
     peerDependencies:
       eslint: ^10.14.0
@@ -2937,9 +2937,9 @@ snapshots:
 
   '@keyv/serialize@1.1.1': {}
 
-  '@leyman/configs@0.2.0': {}
+  '@leyman/configs@0.2.1': {}
 
-  '@leyman/eslint-config@0.2.0(eslint-import-resolver-node@0.4.0)(eslint@10.14.0)(typescript@6.0.3)':
+  '@leyman/eslint-config@0.3.0(eslint-import-resolver-node@0.4.0)(eslint@10.14.0)(typescript@6.0.3)':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.8.1(eslint@10.14.0)
       '@eslint/js': 10.0.1(eslint@10.14.0)

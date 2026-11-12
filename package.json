@@ -22,8 +22,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",
-    "@leyman/configs": "^0.2.0",
-    "@leyman/eslint-config": "^0.2.0",
+    "@leyman/configs": "^0.2.1",
+    "@leyman/eslint-config": "^0.3.0",
     "@shikijs/vitepress-twoslash": "^4.5.0",
     "@types/node": "^26.6.6",
     "eslint": "^10.14.0",
