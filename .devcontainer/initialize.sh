@@ -7,7 +7,7 @@
 #   ~/code/jacobley.github.io/            <- main checkout (owns .git)
 #   ~/code/jacobley.github.io-worktrees/
 #     <branch>/                           <- git worktrees
-#     .shared/                            <- pnpm store, Claude and gh config, plans
+#     .shared/                            <- pnpm store and cache, Claude and gh config, plans
 #   ~/code/.claude-shared/                <- Claude settings and CLAUDE.md shared by every repo
 #
 # Both folders are bind-mounted into the container at the SAME absolute paths as on the
@@ -28,7 +28,7 @@ if [ "$worktree" != "$main_checkout" ] && [ "$(dirname "$worktree")" != "$worktr
     exit 1
 fi
 
-mkdir -p "$shared/pnpm-store" "$shared/claude-config" "$shared/gh-config"
+mkdir -p "$shared/pnpm-store" "$shared/pnpm-cache" "$shared/claude-config" "$shared/gh-config"
 
 # Claude Code settings and user-level CLAUDE.md, shared by every repo's devcontainers (leyman's too): a sibling of the
 # main checkout, linked into this repo's CLAUDE_CONFIG_DIR. Memory stays per repo. A repo's own file moves into the

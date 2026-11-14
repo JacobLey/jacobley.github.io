@@ -21,6 +21,14 @@ services:
       GH_CONFIG_DIR: ${WORKTREES_DIR}/.shared/gh-config
       # Every worktree installs from one shared store
       pnpm_config_store_dir: ${WORKTREES_DIR}/.shared/pnpm-store
+      # and caches its metadata there too: caches that grow live in `.shared/`, not the container's own filesystem,
+      # so they survive rebuilds and don't slow down deleting the old container (see the worktrees skill, "Rebuilding")
+      pnpm_config_cache_dir: ${WORKTREES_DIR}/.shared/pnpm-cache
+
+    # Scratch files stay in memory: free to delete, cleared whenever the container stops. `exec` because Docker mounts a
+    # tmpfs `noexec` by default, which breaks tools that run binaries they copy to /tmp (Nx's native binding, in leyman)
+    tmpfs:
+      - /tmp:exec
 
     # Joins the machine's shared HTTPS ingress, when one runs (leyman's `tools/local-ingress`), which serves
     # https://<worktree>.<repo>.localhost from port 5173, where `pnpm dev` listens: one web port per container, so
