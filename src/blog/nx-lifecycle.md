@@ -25,7 +25,7 @@ The ordering part of that commit is five lines in [`lifecycle.json`](https://git
 }
 ```
 
-Wiring the same order by hand would have meant adding 86 [`dependsOn`](https://nx.dev/reference/project-configuration#dependson) entries, spread over all 25 targets the repo already had, before giving the five new targets dependency lists of their own. The rest of this post is how that number is counted, and what [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) does instead.
+Wiring the same order by hand would have meant adding 86 [`dependsOn`](https://nx.dev/reference/project-configuration#dependson) entries, spread over all 25 targets the repo already had, before giving the five new targets dependency lists of their own. [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) derived them instead.
 
 <!-- Author to fill: why nx-lifecycle exists (when you started it, what you were wiring by hand at the time). -->
 
@@ -33,7 +33,7 @@ Wiring the same order by hand would have meant adding 86 [`dependsOn`](https://n
 
 Tests run after the build. That sentence is true of every project in leyman, but what "build" means differs: `tsc` for a TypeScript package, `rust-wasm` for a crate compiled to WebAssembly, `vitepress-build` for the docs site, and nothing at all for a Go module. Nx's `dependsOn` only names concrete targets, so the general rule gets restated in terms of each tool, in every target that waits on one.
 
-nx-lifecycle splits that into two parts, the way dependency injection does. Stages and their hooks are the interface: the order you intend, stated once, with no tool named. These are leyman's:
+nx-lifecycle splits that into two parts, the way dependency injection does. Stages and their hooks are the interface: the intended order, with no tool named. These are leyman's:
 
 ```json
 {
@@ -48,15 +48,15 @@ nx-lifecycle splits that into two parts, the way dependency injection does. Stag
 }
 ```
 
-Bindings are the implementations: each tool is bound to one hook, once. Each stage becomes a chain of no-op targets (`build:_ → build:run → build:post → build:sync → build`), a bound target depends on the hook before its own, and the hook depends on every target bound to it. Every `dependsOn` is derived from those two maps. A new tool never names the tools around it, and nothing around it ever names the new tool.
+Bindings are the implementations: each tool is bound to one hook, once. Each stage becomes a chain of no-op targets (`build:_ → build:run → build:post → build:sync → build`), a bound target depends on the hook before its own, and the hook depends on every target bound to it. Every `dependsOn` is derived from those two maps. Adding a tool means one new binding and no edits elsewhere.
 
 ## Counting the hand-written version
 
 To compare, I needed a version of leyman without nx-lifecycle. Leyman configures its targets in `nx.json`'s [`targetDefaults`](https://nx.dev/reference/nx-json#target-defaults), one entry per target shared by every project, so the hand-written version is one `dependsOn` per target there.
 
-That brings in the one assumption in the count: a hand-written entry lists every target it waits for, not only the one just before it. Chaining through the step in between only works in projects that have it: Nx [skips a same-project dependency the project doesn't declare](https://github.com/nrwl/nx/blob/0239b3ee05b9051a7558c5a444a14b2d448f8d4d/packages/nx/src/tasks-runner/create-task-graph.ts#L243), along with everything that dependency would have waited on. If `mocha-unit-test` depended on `populate-files` alone, then in the 49 projects that run `tsc` without `populate-files`, nothing would order mocha after `tsc`. (On leyman's `main` as of November 14, 55 of 86 projects declare `tsc`, and 7 declare `populate-files`, 6 of them alongside `tsc`.)
+The count assumes one thing: a hand-written entry lists every target it waits for, not only the one just before it. Chaining through the step in between only works in projects that have it: Nx [skips a same-project dependency the project doesn't declare](https://github.com/nrwl/nx/blob/0239b3ee05b9051a7558c5a444a14b2d448f8d4d/packages/nx/src/tasks-runner/create-task-graph.ts#L243), along with everything that dependency would have waited on. If `mocha-unit-test` depended on `populate-files` alone, then in the 49 projects that run `tsc` without `populate-files`, nothing would order mocha after `tsc`. (On leyman's `main` as of November 14, 55 of 86 projects declare `tsc`, and 7 declare `populate-files`, 6 of them alongside `tsc`.)
 
-With that, the count follows from `lifecycle.json`. A new target `t` bound to stage S must be added to an existing target's entry:
+Given that, two rules decide each entry. A new target `t` bound to stage S must be added to an existing target's entry:
 
 - as `t`, if the existing target is in a later hook of S, or in a stage that runs after S in the same project;
 - as `^t`, if its stage, or a stage that one runs after, has a `^` dependency on S or on a stage that runs after S. These are the dependent projects.
@@ -120,13 +120,13 @@ It lists 25 targets, which is every binding in the parent commit, and 86 entries
 - `rust-test` adds 2 entries, to `coverage-report` and `go-coverage-report`, the only targets that run after `test:run`.
 - `rust-clippy` and `rust-coverage-report` add none. Nothing waits on lint or on coverage.
 
-Adding a lint check by hand is cheap, then. Adding anything that runs early is what spreads through every entry, and a formatter or a code generator usually does run early.
+Formatters and code generators usually run early, so they're the expensive ones to add by hand.
 
 ## What was generated instead
 
 Leyman runs nx-lifecycle's executor, so the generated `dependsOn` are committed and the commit shows them. In `nx.json`, each new target depends on the one hook before its own (`rust-wasm` on `build:_`, `rust-test` on `test:compile`), and each of the five hook targets gained one name: `build:run` now waits on `rust-wasm` beside `tsc` and `vitepress-build`. No existing target's entry changed. One existing project, constant-consistent-hash's test vectors, opted into `rustfmt` with a one-line `"rustfmt": {}` in its `project.json`.
 
-The Rust targets themselves come from a [small Nx plugin in the repo](https://github.com/JacobLey/leyman/blob/main/leyman/main/scripts/nx-rust-plugin.mjs) that reads each crate's `Cargo.toml`. It says how each target runs and leaves when to nx-lifecycle: it sets no `dependsOn` at all.
+The Rust targets themselves come from a [small Nx plugin in the repo](https://github.com/JacobLey/leyman/blob/main/leyman/main/scripts/nx-rust-plugin.mjs) that reads each crate's `Cargo.toml`. It defines the commands and sets no `dependsOn`; nx-lifecycle supplies those.
 
 ## Plugin or executor
 
@@ -140,7 +140,7 @@ The executor writes the targets into `nx.json` and each `project.json`, to be co
 
 Several tools can bind to one hook. In leyman, `build:run` has `tsc`, `vitepress-build` and `rust-wasm`; `test:run` has two mocha suites, vitest, `go-test` and `rust-test`; `test:report` has a coverage check for each of TypeScript, Go and Rust. Targets bound to the same hook run in parallel.
 
-A project only gets the bound targets it declares, so not every project implements every hook. A Go module has nothing in `build:run`, and its tests still wait on its `prepare` stage and on its dependencies' builds, because those orderings belong to the stages. `nx run <project>:build` runs whatever building means for that project.
+A project only gets the bound targets it declares, so not every project implements every hook. A Go module has nothing in `build:run`, and its tests still wait on its `prepare` stage and on its dependencies' builds, because those orderings belong to the stages. `nx run <project>:build` runs `tsc` in a TypeScript package and nothing in a Go module.
 
 The stage at the end is `verify`, which is `check` and `test`. `nx run-many -t verify` is the one command that lints, builds and tests the whole repo, in whatever order each project's bindings call for. How long that command takes is the subject of a follow-up post.
 

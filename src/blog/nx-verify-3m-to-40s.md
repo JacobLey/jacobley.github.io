@@ -10,7 +10,7 @@ date: 2026-11-16
 
 In [leyman](https://github.com/JacobLey/leyman), `verify` is the stage that runs every check and every test. With nothing changed since the last run, so that every one of its 1,796 tasks was a cache hit, `nx run-many -t verify` still took between 2m 22s and 2m 54s. On November 1 I got that down to about 40 seconds.
 
-Most of the time went to one bug in [Nx](https://www.npmjs.com/package/nx): without the Nx daemon, each pass of task hashing copied the result of every task hashed so far into native code, and threw the copy away. I patched it locally the same day and sent the fix upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It shipped in Nx 24.0.4, so getting it now means upgrading. There's no patch to copy.
+Most of the time went to one bug in [Nx](https://www.npmjs.com/package/nx): without the Nx daemon, each pass of task hashing copied the result of every task hashed so far into native code, and threw the copy away. I patched it locally the same day and sent the fix upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It shipped in Nx 24.0.4, so getting it now means upgrading.
 
 | Setup (Nx 23.3.1, 62 projects, 1,796 tasks, 14 cores, 2026-11-01) | Warm `verify` |
 | ----------------------------------------------------------------- | ------------- |
@@ -27,7 +27,7 @@ The first two rows come from [the pull request](https://github.com/nrwl/nx/pull/
 
 The [previous post](/blog/nx-lifecycle) covered how [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) orders leyman's targets into stages. `verify` sits at the end and depends on `check` and `test` ([`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json)), so running it for every project pulls in builds, lint, type checks, packaging checks and tests across all 62 projects.
 
-A cache hit isn't free. Nx has to hash each task's inputs to know which cached result to restore, and in leyman many inputs include `dependentTasksOutputFiles`: the files that dependencies' tasks produced. Those can't be hashed until the dependency has finished (or been restored from cache), so Nx hashes in waves as tasks complete. A full warm `verify` called the native planner about 270 times.
+Even on a cache hit, Nx has to hash each task's inputs to know which cached result to restore, and in leyman many inputs include `dependentTasksOutputFiles`: the files that dependencies' tasks produced. Those can't be hashed until the dependency has finished (or been restored from cache), so Nx hashes in waves as tasks complete. A full warm `verify` called the native planner about 270 times.
 
 ## Profiling it
 
@@ -69,7 +69,7 @@ The fix is a single call: prune the graph before handing it to the planner. leym
      }
 ```
 
-The results stay on the original graph, where the rest of the run reads them; only the planner's copy loses them. To check that the change was safe, I compared the hashes of all 1,796 tasks with and without it. They were identical, apart from one flip I come back to below.
+Only the planner's copy is pruned; the run still reads results from the original graph. To check that the change was safe, I compared the hashes of all 1,796 tasks with and without it. They were identical, apart from one flip I come back to below.
 
 ## Upstream
 
@@ -83,7 +83,7 @@ leyman ran the patch until today, when it moved to Nx <!-- Author to fill: exact
 
 Two settings in the devcontainer changed the same day.
 
-`NX_DAEMON=true` turns the daemon back on ([commit](https://github.com/JacobLey/leyman/commit/e05797d5)). Nx turns it off in Docker so that a container exiting can't cut off Nx Cloud's background calls, and leyman doesn't use Nx Cloud. A long-lived devcontainer is closer to a laptop than to a CI job. With the daemon on, a single-project command starts about a second sooner, and outputs already on disk aren't restored again. The daemon path was already pruned by #36716, so it never had the slow planner calls, but CI runs without the daemon, so the patch was still needed there.
+`NX_DAEMON=true` turns the daemon back on ([commit](https://github.com/JacobLey/leyman/commit/e05797d5)). Nx turns it off in Docker so that a container exiting can't cut off Nx Cloud's background calls, and leyman doesn't use Nx Cloud. With the daemon on, a single-project command starts about a second sooner, and outputs already on disk aren't restored again. The daemon path was already pruned by #36716, so it never had the slow planner calls, but CI runs without the daemon, so the patch was still needed there.
 
 `NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. I tried higher values: anything above 5 saved only about 5 seconds on a warm run, so it stays at 5, the cap the old `.bashrc` line already had.
 
@@ -99,7 +99,7 @@ That one was already fixed upstream by [nrwl/nx#37327](https://github.com/nrwl/n
 
 ## What's left
 
-About 24 of the remaining 40 seconds are Nx hashing dependencies' outputs on the main thread, in `hashPlansFor`. Those hashes are needed for the `dependentTasksOutputFiles` inputs, so this isn't wasted work like the planner copies were. Moving it off the main thread is the next thing I'd look at.
+About 24 of the remaining 40 seconds are Nx hashing dependencies' outputs on the main thread, in `hashPlansFor`. Those hashes are needed for the `dependentTasksOutputFiles` inputs. Moving it off the main thread is the next thing I'd look at.
 
 ## Timing it yourself
 
@@ -120,4 +120,4 @@ time NX_DAEMON=false nx run-many -t verify
 
 Then check out <!-- Author to fill: the leyman bump commit --> for Nx <!-- Author to fill: exact Nx version --> and do the same. Run each a few times: on 23.3.1 the `check-package` flip can add over a minute to any one run.
 
-In your own workspace, the test is the same: time a fully cached `nx run-many` with `NX_DAEMON=false` before and after upgrading to Nx 24.0.4 or later. The more tasks that hash dependencies' outputs, the bigger the difference.
+In your own workspace, the test is the same: time a fully cached `nx run-many` with `NX_DAEMON=false` before and after upgrading to Nx 24.0.4 or later.
