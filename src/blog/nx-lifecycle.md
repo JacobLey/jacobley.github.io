@@ -48,13 +48,13 @@ nx-lifecycle splits that into two parts, the way dependency injection does. Stag
 }
 ```
 
-Bindings are the implementations: each tool is bound to one hook, once. Each stage becomes a chain of no-op targets (`build:_ → build:run → build:post → build:sync → build`), a bound target depends on the hook before its own, and the hook depends on every target bound to it. Every `dependsOn` is derived from those two maps. Adding a tool means one new binding and no edits elsewhere.
+Bindings are the implementations: each tool is bound to one hook, once. Each stage becomes a chain of no-op targets (`build:_ → build:run → build:post → build:sync → build`), a bound target depends on the hook before its own, and the hook depends on every target bound to it. Every `dependsOn` comes out of those two maps, so a new tool is just a new binding.
 
 ## Counting the hand-written version
 
 To compare, I needed a version of leyman without nx-lifecycle. Leyman configures its targets in `nx.json`'s [`targetDefaults`](https://nx.dev/reference/nx-json#target-defaults), one entry per target shared by every project, so the hand-written version is one `dependsOn` per target there.
 
-The count assumes one thing: a hand-written entry lists every target it waits for, not only the one just before it. Chaining through the step in between only works in projects that have it: Nx [skips a same-project dependency the project doesn't declare](https://github.com/nrwl/nx/blob/0239b3ee05b9051a7558c5a444a14b2d448f8d4d/packages/nx/src/tasks-runner/create-task-graph.ts#L243), along with everything that dependency would have waited on. If `mocha-unit-test` depended on `populate-files` alone, then in the 49 projects that run `tsc` without `populate-files`, nothing would order mocha after `tsc`. (On leyman's `main` as of November 14, 55 of 86 projects declare `tsc`, and 7 declare `populate-files`, 6 of them alongside `tsc`.)
+The count assumes a hand-written entry lists every target it waits for, not only the one just before it. Chaining through the step in between only works in projects that have it, because Nx [skips a same-project dependency the project doesn't declare](https://github.com/nrwl/nx/blob/0239b3ee05b9051a7558c5a444a14b2d448f8d4d/packages/nx/src/tasks-runner/create-task-graph.ts#L243), along with everything that dependency would have waited on. If `mocha-unit-test` depended on `populate-files` alone, then in the 49 projects that run `tsc` without `populate-files`, nothing would order mocha after `tsc`. (On leyman's `main` as of November 14, 55 of 86 projects declare `tsc`, and 7 declare `populate-files`, 6 of them alongside `tsc`.)
 
 Given that, two rules decide each entry. A new target `t` bound to stage S must be added to an existing target's entry:
 
@@ -120,8 +120,6 @@ It lists 25 targets, which is every binding in the parent commit, and 86 entries
 - `rust-test` adds 2 entries, to `coverage-report` and `go-coverage-report`, the only targets that run after `test:run`.
 - `rust-clippy` and `rust-coverage-report` add none. Nothing waits on lint or on coverage.
 
-Formatters and code generators usually run early, so they're the expensive ones to add by hand.
-
 ## What was generated instead
 
 Leyman runs nx-lifecycle's executor, so the generated `dependsOn` are committed and the commit shows them. In `nx.json`, each new target depends on the one hook before its own (`rust-wasm` on `build:_`, `rust-test` on `test:compile`), and each of the five hook targets gained one name: `build:run` now waits on `rust-wasm` beside `tsc` and `vitepress-build`. No existing target's entry changed. One existing project, constant-consistent-hash's test vectors, opted into `rustfmt` with a one-line `"rustfmt": {}` in its `project.json`.
@@ -132,13 +130,13 @@ The Rust targets themselves come from a [small Nx plugin in the repo](https://gi
 
 nx-lifecycle can apply the same stages and bindings in two ways.
 
-The plugin infers every lifecycle target when Nx builds the project graph. Nothing is written to your files, so there is nothing to keep in sync. If a project's own `dependsOn` replaces an inferred one and drops its lifecycle dependency, the plugin fails and names the entry to add.
+The plugin infers every lifecycle target when Nx builds the project graph. It doesn't write anything to your files, so there's no generated config to drift. If a project's own `dependsOn` replaces an inferred one and drops its lifecycle dependency, the plugin fails and names the entry to add.
 
 The executor writes the targets into `nx.json` and each `project.json`, to be committed. In CI it only checks that the files match what it would write, and fails if they don't. Leyman uses it because Nx loads plugins before building anything, so a workspace can't run the plugin from its own unbuilt source. Anywhere else, use the plugin.
 
 ## Mixed toolchains, partial projects
 
-Several tools can bind to one hook. In leyman, `build:run` has `tsc`, `vitepress-build` and `rust-wasm`; `test:run` has two mocha suites, vitest, `go-test` and `rust-test`; `test:report` has a coverage check for each of TypeScript, Go and Rust. Targets bound to the same hook run in parallel.
+Several tools can bind to one hook. In leyman, `test:run` alone has two mocha suites, vitest, `go-test` and `rust-test`. Targets bound to the same hook run in parallel.
 
 A project only gets the bound targets it declares, so not every project implements every hook. A Go module has nothing in `build:run`, and its tests still wait on its `prepare` stage and on its dependencies' builds, because those orderings belong to the stages. `nx run <project>:build` runs `tsc` in a TypeScript package and nothing in a Go module.
 

@@ -41,11 +41,11 @@ I didn't open the profile myself. This whole investigation was heavily AI-assist
 
 ## What the planner was given
 
-The planner is written in Rust and called through [N-API](https://nodejs.org/api/n-api.html), which converts JavaScript objects into native structures on every call, synchronously, on the main thread. The hasher passed it the live task graph.
+The planner is written in Rust and called through [N-API](https://nodejs.org/api/n-api.html), which converts JavaScript objects into native structures on every call. That happens on the main thread, and it blocks. The hasher passed it the live task graph.
 
 That graph isn't static during a run. As each task is hashed, Nx writes its `hash` and `hashDetails` onto the task object in the graph, and `hashDetails` holds the hash of every input: in leyman about a million entries by the end of a run. The planner reads neither field, but N-API converted them anyway, so every wave copied the details of every task hashed before it. The cost of a call grew with the run, to about 400ms, and with about 270 calls that came to roughly 112 seconds of a warm `verify`.
 
-Nx already had a fix for this, in two other places. [nrwl/nx#36716](https://github.com/nrwl/nx/pull/36716) stopped resending those results to the daemon, and [nrwl/nx#37015](https://github.com/nrwl/nx/pull/37015) stopped sending them to task workers. Both go through a helper, `pruneTaskGraph`, that returns the graph without run results. The daemonless planner call was the one path left.
+Nx already had a fix for this, in two other places. [nrwl/nx#36716](https://github.com/nrwl/nx/pull/36716) stopped resending those results to the daemon, and [nrwl/nx#37015](https://github.com/nrwl/nx/pull/37015) stopped sending them to task workers. Both go through a helper, `pruneTaskGraph`, that returns the graph without run results. The daemonless planner call just never got it.
 
 ## The patch
 
