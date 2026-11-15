@@ -37,7 +37,7 @@ I ran Nx under Node.js's CPU profiler, [`node --cpu-prof`](https://nodejs.org/ap
 node --cpu-prof leyman/main/node_modules/nx/dist/bin/nx.js run-many -t verify
 ```
 
-The profile put most of the main thread's time in the hasher's `plan` method, which calls the planner. That doesn't mean the planning was slow: a CPU profile charges the conversion of arguments into native code to the function that makes the call. The planning itself was cheap. The cost was in what `plan` passed it.
+I didn't open the profile myself. This whole investigation was heavily AI-assisted, and I had Claude read it. It put most of the main thread's time in the hasher's `plan` method, which calls the planner, so our first conclusion was that Nx re-planned the graph for every task. That was wrong. The profile charges the conversion of arguments into native code to the function that makes the call, so the planning looked expensive when it was actually cheap. The cost was in what `plan` passed it.
 
 ## What the planner was given
 
