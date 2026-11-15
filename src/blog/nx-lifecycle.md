@@ -27,7 +27,7 @@ The ordering part of that commit is five lines in [`lifecycle.json`](https://git
 
 Wiring the same order by hand would have meant adding 86 [`dependsOn`](https://nx.dev/reference/project-configuration#dependson) entries, spread over all 25 targets the repo already had, before giving the five new targets dependency lists of their own. [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) derived them instead.
 
-<!-- Author to fill: why nx-lifecycle exists (when you started it, what you were wiring by hand at the time). -->
+Nx thrives on micro-packages (efficient caching/testing) but that means all the boilerplate for every package gets multiplied every time you need to tweak task dependencies. I wanted to give teams a way to get packages up to speed, while only caring about the "important parts" (e.g. _how_ you test, not _when_ you test). Basically, I needed dependency injection for my task runners.
 
 ## Interface and implementation
 
@@ -187,8 +187,6 @@ Install it in the workspace root, where Nx resolves plugins, and add the plugin 
 }
 ```
 
-Each project opts into a binding by declaring the target (`"tsc": {}`) in its `project.json`. `nx show project <name>` lists the inferred targets, and `pnpx nx-lifecycle explain <name>` prints what runs in which order. nx-lifecycle 1.4.2 needs Node.js 24 and Nx 23.
-<!-- Author to fill: leyman moves to Nx 24 on 2026-11-16; update this line if an nx-lifecycle release supporting Nx 24 is out by publication. -->
-
+Each project opts into a binding by declaring the target (`"tsc": {}`) in its `project.json`. `nx show project <name>` lists the inferred targets, and `pnpx nx-lifecycle explain <name>` prints what runs in which order. nx-lifecycle 1.5.0 needs Node.js 24 and Nx 24; for Nx 23, use 1.4.2.
 
 The [getting started guide](https://jacobley.github.io/leyman/packages/nx-lifecycle/getting-started) covers the setup, [stages and hooks](https://jacobley.github.io/leyman/packages/nx-lifecycle/guides/stages-and-hooks) the generated targets, and [why](https://jacobley.github.io/leyman/packages/nx-lifecycle/why) walks through the hand-written version of a smaller example. Leyman's own [`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json) is a full real config.

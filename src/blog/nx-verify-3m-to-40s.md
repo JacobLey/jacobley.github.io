@@ -12,16 +12,14 @@ In [leyman](https://github.com/JacobLey/leyman), `verify` is the stage that runs
 
 Most of the time went to one bug in [Nx](https://www.npmjs.com/package/nx): without the Nx daemon, each pass of task hashing copied the result of every task hashed so far into native code, and threw the copy away. I patched it locally the same day and sent the fix upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It shipped in Nx 24.0.4, so getting it now means upgrading.
 
-| Setup (Nx 23.3.1, 62 projects, 1,796 tasks, 14 cores, 2026-11-01) | Warm `verify` |
-| ----------------------------------------------------------------- | ------------- |
-| No daemon, as Nx defaults to in Docker                            | 2m 22s–2m 54s |
-| No daemon, with the patch                                         | 37.5s         |
-| Daemon on, `NX_PARALLEL=5`, with the patch                        | about 40s     |
-| Nx 24.0.x, no patch                                               | TBD           |
+| Setup (62 projects, 1,796 tasks, 14 cores)           | Warm `verify` |
+| ---------------------------------------------------- | ------------- |
+| Nx 23.3.1, no daemon, as Nx defaults to in Docker    | 2m 22s–2m 54s |
+| Nx 23.3.1 with the patch, no daemon                  | 37.5s         |
+| Nx 23.3.1 with the patch, daemon on, `NX_PARALLEL=5` | about 40s     |
+| Nx 24.0.5, no patch, no daemon                       | 36s           |
 
-<!-- Author to fill: the last table row, with the exact Nx version leyman bumped to and the warm verify timing after the bump (replace TBD). -->
-
-The first two rows come from [the pull request](https://github.com/nrwl/nx/pull/37714). Per call, the native hash planner went from about 400ms to about 11ms.
+The Nx 23.3.1 rows were measured on November 1, the Nx 24.0.5 row on November 15, when leyman upgraded ([commit](https://github.com/JacobLey/leyman/commit/3cb81500)). The first two rows come from [the pull request](https://github.com/nrwl/nx/pull/37714). Per call, the native hash planner went from about 400ms to about 11ms.
 
 ## What a cached run still does
 
@@ -77,7 +75,7 @@ I opened [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714) about an hour af
 
 <!-- Author to fill: anything first-hand about sending the PR (e.g. how you chose to frame it, or the 944 local hasher and tasks-runner tests you ran before submitting) if worth a line -->
 
-leyman ran the patch until today, when it moved to Nx <!-- Author to fill: exact Nx version --> and dropped it (<!-- Author to fill: link to the leyman bump commit -->).
+leyman ran the patch until November 15, when it moved to Nx 24.0.5 and dropped it ([commit](https://github.com/JacobLey/leyman/commit/3cb81500)). That's 24.0.5 rather than the newer 24.0.6 because leyman only installs releases at least 7 days old. On stock 24.0.5, a warm `verify` without the daemon takes 36s, the same as 23.3.1 with the patch.
 
 ## The other changes
 
@@ -118,6 +116,14 @@ nx run-many -t verify
 time NX_DAEMON=false nx run-many -t verify
 ```
 
-Then check out <!-- Author to fill: the leyman bump commit --> for Nx <!-- Author to fill: exact Nx version --> and do the same. Run each a few times: on 23.3.1 the `check-package` flip can add over a minute to any one run.
+Then do the same on the upgrade to Nx 24.0.5:
+
+```sh
+git checkout 3cb81500 && pnpm install
+nx run-many -t verify
+time NX_DAEMON=false nx run-many -t verify
+```
+
+Run each a few times: on 23.3.1 the `check-package` flip can add over a minute to any one run.
 
 In your own workspace, the test is the same: time a fully cached `nx run-many` with `NX_DAEMON=false` before and after upgrading to Nx 24.0.4 or later.
