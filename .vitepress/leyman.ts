@@ -12,6 +12,7 @@ export const leymanPackages: ReadonlyMap<string, string> = new Map([
     ['generated-signature', 'generated-signature'],
     ['genever', 'genever'],
     ['juniper', 'Juniper'],
+    ['nx-lifecycle', 'nx-lifecycle'],
     ['populate-files', 'populate-files'],
 ]);
 
