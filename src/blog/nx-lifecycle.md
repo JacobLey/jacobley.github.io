@@ -1,7 +1,7 @@
 ---
 title: "nx-lifecycle: dependency injection for Nx task pipelines"
 description: "Making Rust a supported language in leyman took five new Nx targets. With nx-lifecycle that was five lines of config; written by hand, 86 dependsOn entries across every existing target."
-date: 2026-11-16
+date: 2026-11-15
 packages: [nx-lifecycle]
 ---
 

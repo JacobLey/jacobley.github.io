@@ -1,7 +1,7 @@
 ---
 title: "A cached Nx run took almost 3 minutes. Now it takes 40 seconds"
 description: "With every task in leyman cached, nx run-many -t verify still took 2m 22s to 2m 54s. Most of it was Nx copying finished tasks' results into native code on every hashing pass. The fix is in Nx 24.0.4."
-date: 2026-11-16
+date: 2026-11-15
 ---
 
 # A cached Nx run took almost 3 minutes. Now it takes 40 seconds
