@@ -37,11 +37,7 @@ I ran Nx under Node.js's CPU profiler, [`node --cpu-prof`](https://nodejs.org/ap
 node --cpu-prof leyman/main/node_modules/nx/dist/bin/nx.js run-many -t verify
 ```
 
-<!-- Author to fill: anything worth adding about reading the profile (the tool you opened it in, what the flame chart looked like) -->
-
-The profile put most of the main thread's time in the hasher's `plan` method, which calls the planner. My first reading was that Nx re-planned the graph for every task. That was wrong: the profile charges the conversion of arguments into native code to the function that makes the call, and the planning itself was cheap.
-
-<!-- Author to fill: confirm you're happy to tell the wrong-first-guess story; it comes from your session notes -->
+The profile put most of the main thread's time in the hasher's `plan` method, which calls the planner. That doesn't mean the planning was slow: a CPU profile charges the conversion of arguments into native code to the function that makes the call. The planning itself was cheap. The cost was in what `plan` passed it.
 
 ## What the planner was given
 
@@ -71,9 +67,7 @@ Only the planner's copy is pruned; the run still reads results from the original
 
 ## Upstream
 
-I opened [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714) about an hour after the patch landed in leyman: the same change in TypeScript source, and a test that hashes a task whose dependency already carries `hash` and `hashDetails`, then checks the planner received the dependency without them while the original task kept its own. [Leosvel Pérez Espinosa](https://github.com/leosvelperez) approved it the next day, and it was merged on November 2 and released in [Nx 24.0.4](https://github.com/nrwl/nx/releases/tag/24.0.4) on November 3. No 23.x release has it.
-
-<!-- Author to fill: anything first-hand about sending the PR (e.g. how you chose to frame it, or the 944 local hasher and tasks-runner tests you ran before submitting) if worth a line -->
+I sent the same change upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It was merged on November 2 and released in [Nx 24.0.4](https://github.com/nrwl/nx/releases/tag/24.0.4) on November 3. No 23.x release has it.
 
 leyman ran the patch until November 15, when it moved to Nx 24.0.5 and dropped it ([commit](https://github.com/JacobLey/leyman/commit/3cb81500)). That's 24.0.5 rather than the newer 24.0.6 because leyman only installs releases at least 7 days old. On stock 24.0.5, a warm `verify` without the daemon takes 36s, the same as 23.3.1 with the patch.
 
@@ -83,9 +77,7 @@ Two settings in the devcontainer changed the same day.
 
 `NX_DAEMON=true` turns the daemon back on ([commit](https://github.com/JacobLey/leyman/commit/e05797d5)). Nx turns it off in Docker so that a container exiting can't cut off Nx Cloud's background calls, and leyman doesn't use Nx Cloud. With the daemon on, a single-project command starts about a second sooner, and outputs already on disk aren't restored again. The daemon path was already pruned by #36716, so it never had the slow planner calls, but CI runs without the daemon, so the patch was still needed there.
 
-`NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. I tried higher values: anything above 5 saved only about 5 seconds on a warm run, so it stays at 5, the cap the old `.bashrc` line already had.
-
-<!-- Author to fill: why 5 rather than the core count, if worth saying (the old Dockerfile comment worried about file overload) -->
+`NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. The value is still 5, the CPU count capped at 5, as the old `.bashrc` line set it.
 
 I also measured the tasks that never cache, in case they were the problem. They weren't: `sync-injected` takes 48ms, `biome` 49ms, and all the no-op tasks together about a second.
 
