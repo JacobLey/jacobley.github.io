@@ -8,9 +8,9 @@ date: 2026-11-16
 
 <PostHeader />
 
-In [leyman](https://github.com/JacobLey/leyman), `verify` is the stage that runs every check and every test. With nothing changed since the last run, so that every one of its 1,796 tasks was a cache hit, `nx run-many -t verify` still took between 2m 22s and 2m 54s. On November 1 I got that down to about 40 seconds.
+In [leyman](https://github.com/JacobLey/leyman), `verify` is the stage that runs every check and every test. Nothing had changed, so all 1,796 tasks were cache hits, and `nx run-many -t verify` still took between 2m 22s and 2m 54s. On November 1 I got that down to about 40 seconds.
 
-Most of the time went to one bug in [Nx](https://www.npmjs.com/package/nx): without the Nx daemon, each pass of task hashing copied the result of every task hashed so far into native code, and threw the copy away. I patched it locally the same day and sent the fix upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It shipped in Nx 24.0.4, so getting it now means upgrading.
+Most of the time went to one bug in [Nx](https://www.npmjs.com/package/nx): without the Nx daemon, each pass of task hashing copied the result of every task hashed so far into native code, and threw the copy away. I patched it locally the same day and sent the fix upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It's in Nx 24.0.4, so you just need to upgrade.
 
 | Setup (62 projects, 1,796 tasks, 14 cores)           | Warm `verify` |
 | ---------------------------------------------------- | ------------- |
@@ -21,15 +21,15 @@ Most of the time went to one bug in [Nx](https://www.npmjs.com/package/nx): with
 
 The Nx 23.3.1 rows were measured on November 1, the Nx 24.0.5 row on November 15, when leyman upgraded ([commit](https://github.com/JacobLey/leyman/commit/3cb81500)). The first two rows come from [the pull request](https://github.com/nrwl/nx/pull/37714). Per call, the native hash planner went from about 400ms to about 11ms.
 
-## What a cached run still does
+## Why a cached run is slow at all
 
 The [previous post](/blog/nx-lifecycle) covered how [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) orders leyman's targets into stages. `verify` sits at the end and depends on `check` and `test` ([`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json)), so running it for every project pulls in builds, lint, type checks, packaging checks and tests across all 62 projects.
 
-Even on a cache hit, Nx has to hash each task's inputs to know which cached result to restore, and in leyman many inputs include `dependentTasksOutputFiles`: the files that dependencies' tasks produced. Those can't be hashed until the dependency has finished (or been restored from cache), so Nx hashes in waves as tasks complete. A full warm `verify` called the native planner about 270 times.
+Nx still hashes every task's inputs on a cache hit. In leyman a lot of those inputs are `dependentTasksOutputFiles` (files the dependencies' tasks produced), which can't be hashed until the dependency is done, so it hashes in waves. A full warm `verify` called the native planner about 270 times.
 
 ## Profiling it
 
-leyman's [devcontainer](https://github.com/JacobLey/leyman/tree/main/.devcontainer) runs in Docker, and Nx turns its [daemon](https://nx.dev/concepts/nx-daemon) off in Docker by default ([nrwl/nx#14126](https://github.com/nrwl/nx/issues/14126)). CI runs without one too. So every run went through Nx's daemonless path.
+leyman's [devcontainer](https://github.com/JacobLey/leyman/tree/main/.devcontainer) runs in Docker, and Nx turns its [daemon](https://nx.dev/concepts/nx-daemon) off in Docker by default ([nrwl/nx#14126](https://github.com/nrwl/nx/issues/14126)). CI runs without one too. So I was never running with a daemon.
 
 I ran Nx under Node.js's CPU profiler, [`node --cpu-prof`](https://nodejs.org/api/cli.html#--cpu-prof), pointed at Nx's own entry point. From leyman's root:
 
@@ -37,19 +37,19 @@ I ran Nx under Node.js's CPU profiler, [`node --cpu-prof`](https://nodejs.org/ap
 node --cpu-prof leyman/main/node_modules/nx/dist/bin/nx.js run-many -t verify
 ```
 
-I didn't open the profile myself. This whole investigation was heavily AI-assisted, and I had Claude read it. It put most of the main thread's time in the hasher's `plan` method, which calls the planner, so our first conclusion was that Nx re-planned the graph for every task. That was wrong. The profile charges the conversion of arguments into native code to the function that makes the call, so the planning looked expensive when it was actually cheap. The cost was in what `plan` passed it.
+I didn't open the profile myself. This whole investigation was heavily AI-assisted, and I had Claude read it. It put most of the main thread's time in the hasher's `plan` method, which calls the planner, so our first conclusion was that Nx re-planned the graph for every task. That turned out to be wrong. The profiler counts the time spent converting arguments for native code against the caller, so the planner looked slow but wasn't. What was slow was converting the stuff `plan` handed it.
 
-## What the planner was given
+## The planner's input
 
-The planner is written in Rust and called through [N-API](https://nodejs.org/api/n-api.html), which converts JavaScript objects into native structures on every call. That happens on the main thread, and it blocks. The hasher passed it the live task graph.
+The planner is written in Rust and called through [N-API](https://nodejs.org/api/n-api.html), which converts JavaScript objects into native structures on every call. It does that on the main thread, blocking. And the hasher was passing it the whole live task graph.
 
-That graph isn't static during a run. As each task is hashed, Nx writes its `hash` and `hashDetails` onto the task object in the graph, and `hashDetails` holds the hash of every input: in leyman about a million entries by the end of a run. The planner reads neither field, but N-API converted them anyway, so every wave copied the details of every task hashed before it. The cost of a call grew with the run, to about 400ms, and with about 270 calls that came to roughly 112 seconds of a warm `verify`.
+As each task is hashed, Nx writes its `hash` and `hashDetails` onto the task object in the graph, and `hashDetails` holds the hash of every input: in leyman about a million entries by the end of a run. The planner reads neither field, but N-API converted them anyway, so every wave copied the details of every task hashed before it. So each call got slower as the run went on, up to about 400ms. Times ~270 calls, that's roughly 112 seconds of a warm `verify`.
 
-Nx already had a fix for this, in two other places. [nrwl/nx#36716](https://github.com/nrwl/nx/pull/36716) stopped resending those results to the daemon, and [nrwl/nx#37015](https://github.com/nrwl/nx/pull/37015) stopped sending them to task workers. Both go through a helper, `pruneTaskGraph`, that returns the graph without run results. The daemonless planner call just never got it.
+Nx had actually fixed this twice already. [nrwl/nx#36716](https://github.com/nrwl/nx/pull/36716) stopped resending results to the daemon and [nrwl/nx#37015](https://github.com/nrwl/nx/pull/37015) stopped sending them to task workers, both through a helper called `pruneTaskGraph` that strips run results off the graph. Nobody had added it to the daemonless planner call.
 
 ## The patch
 
-The fix is a single call: prune the graph before handing it to the planner. leyman carried it as a [pnpm patch](https://pnpm.io/settings#patcheddependencies) of Nx 23.3.1's compiled code ([the patch](https://github.com/JacobLey/leyman/blob/49959e5128b9959326b5f36c9069d2be7979ed17/patches/nx@23.3.1.patch), [commit](https://github.com/JacobLey/leyman/commit/49959e51)):
+The fix just prunes the graph before it goes to the planner. leyman carried it as a [pnpm patch](https://pnpm.io/settings#patcheddependencies) of Nx 23.3.1's compiled code ([the patch](https://github.com/JacobLey/leyman/blob/49959e5128b9959326b5f36c9069d2be7979ed17/patches/nx@23.3.1.patch), [commit](https://github.com/JacobLey/leyman/commit/49959e51)):
 
 ```diff
      plan(taskIds, taskGraph, ultracacheConfigurations) {
@@ -63,23 +63,23 @@ The fix is a single call: prune the graph before handing it to the planner. leym
      }
 ```
 
-Only the planner's copy is pruned; the run still reads results from the original graph. To check that the change was safe, I compared the hashes of all 1,796 tasks with and without it. They were identical, apart from one flip I come back to below.
+Only the planner gets the pruned copy. Everything else still reads the original graph. To check that the change was safe, I compared the hashes of all 1,796 tasks with and without it. They were identical, apart from one flip I come back to below.
 
 ## Upstream
 
 I sent the same change upstream as [nrwl/nx#37714](https://github.com/nrwl/nx/pull/37714). It was merged on November 2 and released in [Nx 24.0.4](https://github.com/nrwl/nx/releases/tag/24.0.4) on November 3. No 23.x release has it.
 
-leyman ran the patch until November 15, when it moved to Nx 24.0.5 and dropped it ([commit](https://github.com/JacobLey/leyman/commit/3cb81500)). That's 24.0.5 rather than the newer 24.0.6 because leyman only installs releases at least 7 days old. On stock 24.0.5, a warm `verify` without the daemon takes 36s, the same as 23.3.1 with the patch.
+leyman ran the patch until November 15, when it moved to Nx 24.0.5 and dropped it ([commit](https://github.com/JacobLey/leyman/commit/3cb81500)). That's 24.0.5 rather than the newer 24.0.6 because leyman only installs releases at least 7 days old. On stock 24.0.5, a warm `verify` without the daemon takes 36s, about the same as 23.3.1 with the patch.
 
 ## The other changes
 
 Two settings in the devcontainer changed the same day.
 
-`NX_DAEMON=true` turns the daemon back on ([commit](https://github.com/JacobLey/leyman/commit/e05797d5)). Nx turns it off in Docker so that a container exiting can't cut off Nx Cloud's background calls, and leyman doesn't use Nx Cloud. With the daemon on, a single-project command starts about a second sooner, and outputs already on disk aren't restored again. The daemon path was already pruned by #36716, so it never had the slow planner calls, but CI runs without the daemon, so the patch was still needed there.
+`NX_DAEMON=true` turns the daemon back on ([commit](https://github.com/JacobLey/leyman/commit/e05797d5)). Nx turns it off in Docker so that a container exiting can't cut off Nx Cloud's background calls, and leyman doesn't use Nx Cloud. With the daemon on, a single-project command starts about a second sooner, and outputs already on disk aren't restored again. The daemon path was already fixed by #36716. CI doesn't use the daemon though, so CI still needed the patch.
 
-`NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. The value is still 5, the CPU count capped at 5, as the old `.bashrc` line set it.
+`NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. It's still 5 (CPU count, capped at 5), same as the old `.bashrc` line.
 
-I also measured the tasks that never cache, in case they were the problem. They weren't: `sync-injected` takes 48ms, `biome` 49ms, and all the no-op tasks together about a second.
+I also measured the tasks that never cache, in case they were the problem. Nope. `sync-injected` is 48ms, `biome` 49ms, and all the no-op tasks together about a second.
 
 ## A hash that wouldn't stay put
 

@@ -9,9 +9,9 @@ packages: [nx-lifecycle]
 
 <PostHeader />
 
-On November 1, Rust became a supported language in [leyman](https://github.com/JacobLey/leyman), my monorepo ([commit](https://github.com/JacobLey/leyman/commit/97a41c04)). That meant five new [Nx](https://nx.dev/) targets: `rustfmt`, `rust-clippy`, `rust-wasm`, `rust-test` and `rust-coverage-report`. Each has to run at the right moment: formatting before anything reads the source, the WebAssembly build before anything that imports it, coverage after the tests.
+On November 1, Rust became a supported language in [leyman](https://github.com/JacobLey/leyman), my monorepo ([commit](https://github.com/JacobLey/leyman/commit/97a41c04)). That meant five new [Nx](https://nx.dev/) targets: `rustfmt`, `rust-clippy`, `rust-wasm`, `rust-test` and `rust-coverage-report`. They all have to run in the right order. Format first, build the wasm before anything imports it, coverage after tests.
 
-The ordering part of that commit is five lines in [`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json):
+The ordering itself only took five lines in [`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json):
 
 ```json
 {
@@ -25,13 +25,13 @@ The ordering part of that commit is five lines in [`lifecycle.json`](https://git
 }
 ```
 
-Wiring the same order by hand would have meant adding 86 [`dependsOn`](https://nx.dev/reference/project-configuration#dependson) entries, spread over all 25 targets the repo already had, before giving the five new targets dependency lists of their own. [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) derived them instead.
+Wiring the same order by hand would have meant adding 86 [`dependsOn`](https://nx.dev/reference/project-configuration#dependson) entries, spread over all 25 existing targets, plus dependency lists for the five new ones. [nx-lifecycle](https://jacobley.github.io/leyman/packages/nx-lifecycle/) generated all of it for me.
 
 Nx thrives on micro-packages (efficient caching/testing) but that means all the boilerplate for every package gets multiplied every time you need to tweak task dependencies. I wanted to give teams a way to get packages up to speed, while only caring about the "important parts" (e.g. _how_ you test, not _when_ you test). Basically, I needed dependency injection for my task runners.
 
 ## Interface and implementation
 
-Tests run after the build. That sentence is true of every project in leyman, but what "build" means differs: `tsc` for a TypeScript package, `rust-wasm` for a crate compiled to WebAssembly, `vitepress-build` for the docs site, and nothing at all for a Go module. Nx's `dependsOn` only names concrete targets, so the general rule gets restated in terms of each tool, in every target that waits on one.
+In leyman, tests always run after the build, but "build" is different per project: `tsc` for a TypeScript package, `rust-wasm` for a crate compiled to WebAssembly, `vitepress-build` for the docs site, and nothing at all for a Go module. Nx's `dependsOn` only takes concrete target names, so every target that waits on the build has to name `tsc`, `rust-wasm`, and so on itself.
 
 nx-lifecycle splits that into two parts, the way dependency injection does. Stages and their hooks are the interface: the intended order, with no tool named. These are leyman's:
 
@@ -48,7 +48,7 @@ nx-lifecycle splits that into two parts, the way dependency injection does. Stag
 }
 ```
 
-Bindings are the implementations: each tool is bound to one hook, once. Each stage becomes a chain of no-op targets (`build:_ → build:run → build:post → build:sync → build`), a bound target depends on the hook before its own, and the hook depends on every target bound to it. Every `dependsOn` comes out of those two maps, so a new tool is just a new binding.
+Bindings are the implementations: each tool is bound to one hook, once. Each stage becomes a chain of no-op targets (`build:_ → build:run → build:post → build:sync → build`), a bound target depends on the hook before its own, and the hook depends on every target bound to it. All the `dependsOn` get generated from those two maps.
 
 ## Counting the hand-written version
 
@@ -56,7 +56,7 @@ To compare, I needed a version of leyman without nx-lifecycle. Leyman configures
 
 The count assumes a hand-written entry lists every target it waits for, not only the one just before it. Chaining through the step in between only works in projects that have it, because Nx [skips a same-project dependency the project doesn't declare](https://github.com/nrwl/nx/blob/0239b3ee05b9051a7558c5a444a14b2d448f8d4d/packages/nx/src/tasks-runner/create-task-graph.ts#L243), along with everything that dependency would have waited on. If `mocha-unit-test` depended on `populate-files` alone, then in the 49 projects that run `tsc` without `populate-files`, nothing would order mocha after `tsc`. (On leyman's `main` as of November 14, 55 of 86 projects declare `tsc`, and 7 declare `populate-files`, 6 of them alongside `tsc`.)
 
-Given that, two rules decide each entry. A new target `t` bound to stage S must be added to an existing target's entry:
+So each entry comes down to two rules. A new target `t` bound to stage S must be added to an existing target's entry:
 
 - as `t`, if the existing target is in a later hook of S, or in a stage that runs after S in the same project;
 - as `^t`, if its stage, or a stage that one runs after, has a `^` dependency on S or on a stage that runs after S. These are the dependent projects.
@@ -114,7 +114,7 @@ git show 97a41c04:leyman/main/lifecycle.json \
   | node waiters.mjs rustfmt rust-clippy rust-wasm rust-test rust-coverage-report
 ```
 
-It lists 25 targets, which is every binding in the parent commit, and 86 entries. The five tools don't contribute equally:
+It lists 25 targets, which is every binding in the parent commit, and 86 entries. Two of the five tools are almost all of it:
 
 - `rustfmt` and `rust-wasm` account for almost all of it. Formatting and the build run early, and since `install` waits on `^build`, every stage of a dependent project waits on them. Most targets need both `rustfmt` and `^rustfmt`, and the same for `rust-wasm`.
 - `rust-test` adds 2 entries, to `coverage-report` and `go-coverage-report`, the only targets that run after `test:run`.
@@ -124,11 +124,11 @@ It lists 25 targets, which is every binding in the parent commit, and 86 entries
 
 Leyman runs nx-lifecycle's executor, so the generated `dependsOn` are committed and the commit shows them. In `nx.json`, each new target depends on the one hook before its own (`rust-wasm` on `build:_`, `rust-test` on `test:compile`), and each of the five hook targets gained one name: `build:run` now waits on `rust-wasm` beside `tsc` and `vitepress-build`. No existing target's entry changed. One existing project, constant-consistent-hash's test vectors, opted into `rustfmt` with a one-line `"rustfmt": {}` in its `project.json`.
 
-The Rust targets themselves come from a [small Nx plugin in the repo](https://github.com/JacobLey/leyman/blob/main/leyman/main/scripts/nx-rust-plugin.mjs) that reads each crate's `Cargo.toml`. It defines the commands and sets no `dependsOn`; nx-lifecycle supplies those.
+The Rust targets themselves come from a [small Nx plugin in the repo](https://github.com/JacobLey/leyman/blob/main/leyman/main/scripts/nx-rust-plugin.mjs) that reads each crate's `Cargo.toml`. It only defines the commands. The `dependsOn` all come from nx-lifecycle.
 
 ## Plugin or executor
 
-nx-lifecycle can apply the same stages and bindings in two ways.
+You can run nx-lifecycle as a plugin or as an executor.
 
 The plugin infers every lifecycle target when Nx builds the project graph. It doesn't write anything to your files, so there's no generated config to drift. If a project's own `dependsOn` replaces an inferred one and drops its lifecycle dependency, the plugin fails and names the entry to add.
 
@@ -138,9 +138,9 @@ The executor writes the targets into `nx.json` and each `project.json`, to be co
 
 Several tools can bind to one hook. In leyman, `test:run` alone has two mocha suites, vitest, `go-test` and `rust-test`. Targets bound to the same hook run in parallel.
 
-A project only gets the bound targets it declares, so not every project implements every hook. A Go module has nothing in `build:run`, and its tests still wait on its `prepare` stage and on its dependencies' builds, because those orderings belong to the stages. `nx run <project>:build` runs `tsc` in a TypeScript package and nothing in a Go module.
+A project only gets the bound targets it declares, so not every project implements every hook. A Go module has nothing in `build:run`, and its tests still wait on its `prepare` stage and on its dependencies' builds, since that's set on the stage, not the tool. `nx run <project>:build` runs `tsc` in a TypeScript package and nothing in a Go module.
 
-The stage at the end is `verify`, which is `check` and `test`. `nx run-many -t verify` is the one command that lints, builds and tests the whole repo, in whatever order each project's bindings call for. How long that command takes is the subject of a follow-up post.
+The stage at the end is `verify`, which is `check` and `test`. `nx run-many -t verify` lints, builds and tests everything. How long it takes is a whole other post (the next one).
 
 ## Testing the planner
 
@@ -155,7 +155,7 @@ fc.assert(
 );
 ```
 
-So when the planner gains a new rejection, the schema has to reject the same configurations, or the test finds one it accepts. The schema now requires hook names to be non-empty, unique, and not `_` (the name of a stage's anchor target), matching what the planner rejects as of nx-lifecycle 1.4.2 ([commit](https://github.com/JacobLey/leyman/commit/d3be6ecf)).
+So whenever I make the planner reject something new, I have to make the schema reject it too, or the test will generate one and fail. The schema now requires hook names to be non-empty, unique, and not `_` (the name of a stage's anchor target), matching what the planner rejects as of nx-lifecycle 1.4.2 ([commit](https://github.com/JacobLey/leyman/commit/d3be6ecf)).
 
 ## Try it
 
@@ -187,4 +187,4 @@ Install it in the workspace root, where Nx resolves plugins, and add the plugin 
 
 Each project opts into a binding by declaring the target (`"tsc": {}`) in its `project.json`. `nx show project <name>` lists the inferred targets, and `pnpx nx-lifecycle explain <name>` prints what runs in which order. nx-lifecycle 1.5.0 needs Node.js 24 and Nx 24; for Nx 23, use 1.4.2.
 
-The [getting started guide](https://jacobley.github.io/leyman/packages/nx-lifecycle/getting-started) covers the setup, [stages and hooks](https://jacobley.github.io/leyman/packages/nx-lifecycle/guides/stages-and-hooks) the generated targets, and [why](https://jacobley.github.io/leyman/packages/nx-lifecycle/why) walks through the hand-written version of a smaller example. Leyman's own [`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json) is a full real config.
+Setup is in the [getting started guide](https://jacobley.github.io/leyman/packages/nx-lifecycle/getting-started). [Stages and hooks](https://jacobley.github.io/leyman/packages/nx-lifecycle/guides/stages-and-hooks) explains the generated targets. The [why](https://jacobley.github.io/leyman/packages/nx-lifecycle/why) page does the hand-written version of a smaller example. Leyman's own [`lifecycle.json`](https://github.com/JacobLey/leyman/blob/main/leyman/main/lifecycle.json) is a full real config.
