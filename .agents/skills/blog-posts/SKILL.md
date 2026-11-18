@@ -12,7 +12,11 @@ A post is `src/blog/<slug>.md`, served at `https://jacobley.github.io/blog/<slug
 - Frontmatter: `title`, `description`, `date` (`YYYY-MM-DD`, the publication date) and optionally `packages`, the slugs of the leyman packages it is about. A slug must be listed in [`.vitepress/leyman.ts`](../../../.vitepress/leyman.ts): add it there the first time a post names it.
 - `<PostHeader />` right under the title: the date, the packages and a link back to all posts.
 - The build fails when a field is missing, a slug isn't listed, or `<PostHeader />` is missing ([`.vitepress/blog.ts`](../../../.vitepress/blog.ts)).
-- Lead with a measured result or a real story. Numbers come from a generated, reproducible report, with the versions measured, and the post says how to rerun it.
+- Numbers come from a generated, reproducible report, and the post says how to rerun it.
+
+## Writing
+
+How a post reads (voice, openings, titles, numbers, comparing our own libraries) is in [`writing.md`](./writing.md). Before the author reviews a draft, a fresh agent audits it for AI tells with [`ai-tells.md`](./ai-tells.md).
 
 ## Links
 
@@ -39,4 +43,6 @@ The feed carries each post's full content for sites that import it (dev.to): sit
 1. Draft on a branch, or in the gitignored `plans/`. Leave `<!-- Author to fill: ... -->` where a first-hand detail is needed; never invent one. Comments are stripped from the page and the feed.
 2. Set `date` to the publish day. `pnpm run check` (lint and build) passes.
 3. Merge to `main`: CI deploys to GitHub Pages.
-4. In dev.to: open the draft the feed import created, check tables, code and the canonical URL (the post's URL here), add tags, publish.
+4. In dev.to: open the draft the feed import created, check tables, code and the canonical URL (the post's URL here), add tags (up to four) and a cover image (something from the post: a table, a diagram, a terminal screenshot), pick the AI-disclosure tier when AI helped, and publish. The import carries neither the cover nor the tier.
+
+A mistake found after publishing is fixed in place with a dated note, crediting whoever found it. dev.to doesn't re-import, so edit its copy by hand too.
