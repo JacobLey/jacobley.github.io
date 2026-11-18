@@ -37,13 +37,13 @@ I ran Nx under Node.js's CPU profiler, [`node --cpu-prof`](https://nodejs.org/ap
 node --cpu-prof leyman/main/node_modules/nx/dist/bin/nx.js run-many -t verify
 ```
 
-I didn't open the profile myself. This whole investigation was heavily AI-assisted, and I had Claude read it. It put most of the main thread's time in the hasher's `plan` method, which calls the planner, so our first conclusion was that Nx re-planned the graph for every task. That turned out to be wrong. The profiler counts the time spent converting arguments for native code against the caller, so the planner looked slow but wasn't. What was slow was converting the stuff `plan` handed it.
+I didn't open the profile myself. This whole investigation was heavily AI-assisted, and I had Claude read it. It put most of the main thread's time in the hasher's `plan` method, which calls the planner, so our first conclusion was that Nx re-planned the graph for every task. That turned out to be wrong. The profiler counts the time spent converting arguments for native code against the caller, so the time it put on `plan` was really spent converting what `plan` handed the planner.
 
 ## The planner's input
 
 The planner is written in Rust and called through [N-API](https://nodejs.org/api/n-api.html), which converts JavaScript objects into native structures on every call. It does that on the main thread, blocking. And the hasher was passing it the whole live task graph.
 
-As each task is hashed, Nx writes its `hash` and `hashDetails` onto the task object in the graph, and `hashDetails` holds the hash of every input: in leyman about a million entries by the end of a run. The planner reads neither field, but N-API converted them anyway, so every wave copied the details of every task hashed before it. So each call got slower as the run went on, up to about 400ms. Times ~270 calls, that's roughly 112 seconds of a warm `verify`.
+As each task is hashed, Nx writes its `hash` and `hashDetails` onto the task object in the graph, and `hashDetails` holds the hash of every input: in leyman about a million entries by the end of a run. The planner reads neither field, but N-API converted them anyway, so every wave copied the details of every task hashed before it. So each call got slower as the run went on. At about 400ms a call, against 11ms with the fix, the ~270 calls make up most of the two minutes the fix saved.
 
 Nx had actually fixed this twice already. [nrwl/nx#36716](https://github.com/nrwl/nx/pull/36716) stopped resending results to the daemon and [nrwl/nx#37015](https://github.com/nrwl/nx/pull/37015) stopped sending them to task workers, both through a helper called `pruneTaskGraph` that strips run results off the graph. Nobody had added it to the daemonless planner call.
 
@@ -79,7 +79,7 @@ Two settings in the devcontainer changed the same day.
 
 `NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. It's still 5 (CPU count, capped at 5), same as the old `.bashrc` line.
 
-I also measured the tasks that never cache, in case they were the problem. Nope. `sync-injected` is 48ms, `biome` 49ms, and all the no-op tasks together about a second.
+I also measured the tasks that never cache, in case they were the problem, and they weren't: `sync-injected` is 48ms, `biome` 49ms, and all the no-op tasks together about a second.
 
 ## A hash that wouldn't stay put
 
@@ -93,7 +93,7 @@ About 24 of the remaining 40 seconds are Nx hashing dependencies' outputs on the
 
 ## Timing it yourself
 
-This needs Nx and the whole workspace, so it can't run in the browser. In leyman's devcontainer (`nx` is on the `PATH` there; elsewhere use `leyman/main/node_modules/.bin/nx` after `pnpm install`), run `verify` once to fill the cache, then time a second run:
+In leyman's devcontainer (`nx` is on the `PATH` there; elsewhere use `leyman/main/node_modules/.bin/nx` after `pnpm install`), run `verify` once to fill the cache, then time a second run:
 
 ```sh
 nx run-many -t verify

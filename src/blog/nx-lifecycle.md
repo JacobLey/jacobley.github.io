@@ -116,7 +116,7 @@ git show 97a41c04:leyman/main/lifecycle.json \
 
 It lists 25 targets, which is every binding in the parent commit, and 86 entries. Two of the five tools are almost all of it:
 
-- `rustfmt` and `rust-wasm` account for almost all of it. Formatting and the build run early, and since `install` waits on `^build`, every stage of a dependent project waits on them. Most targets need both `rustfmt` and `^rustfmt`, and the same for `rust-wasm`.
+- `rustfmt` and `rust-wasm`. Formatting and the build run early, and since `install` waits on `^build`, every stage of a dependent project waits on them. Most targets need both `rustfmt` and `^rustfmt`, and the same for `rust-wasm`.
 - `rust-test` adds 2 entries, to `coverage-report` and `go-coverage-report`, the only targets that run after `test:run`.
 - `rust-clippy` and `rust-coverage-report` add none. Nothing waits on lint or on coverage.
 
@@ -140,7 +140,7 @@ Several tools can bind to one hook. In leyman, `test:run` alone has two mocha su
 
 A project only gets the bound targets it declares, so not every project implements every hook. A Go module has nothing in `build:run`, and its tests still wait on its `prepare` stage and on its dependencies' builds, since that's set on the stage, not the tool. `nx run <project>:build` runs `tsc` in a TypeScript package and nothing in a Go module.
 
-The stage at the end is `verify`, which is `check` and `test`. `nx run-many -t verify` lints, builds and tests everything. How long it takes is a whole other post (the next one).
+The stage at the end is `verify`, which is `check` and `test`. `nx run-many -t verify` lints, builds and tests everything. How long it takes is [the next post](/blog/nx-cached-verify).
 
 ## Testing the planner
 
