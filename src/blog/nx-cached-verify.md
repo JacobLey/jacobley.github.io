@@ -77,6 +77,8 @@ Two settings in the devcontainer changed the same day.
 
 `NX_DAEMON=true` turns the daemon back on ([commit](https://github.com/JacobLey/leyman/commit/e05797d5)). Nx turns it off in Docker so that a container exiting can't cut off Nx Cloud's background calls, and leyman doesn't use Nx Cloud. With the daemon on, a single-project command starts about a second sooner, and outputs already on disk aren't restored again. The daemon path was already fixed by #36716. CI doesn't use the daemon though, so CI still needed the patch.
 
+_Update, November 19:_ the second-sooner start claimed above didn't hold up when measured on Nx 24.0.5 with [hyperfine](https://github.com/sharkdp/hyperfine), 20 runs per side (6 for `verify`). The daemon saved about 50 ms of project-graph work, building one project took the same time either way, cached or not, and a warm `verify` was 1.7 s slower with it (42.65 s against 40.95 s, medians). So leyman turned the daemon off again ([commit](https://github.com/JacobLey/leyman/commit/92fc25df)). To rerun the comparison in a leyman worktree: `scripts/commands/nx-daemon-bench unknown-error`.
+
 `NX_PARALLEL=5` moved from `.bashrc` into the devcontainer's environment ([commit](https://github.com/JacobLey/leyman/commit/e3d87f41)). It had only reached bash, while the terminals and editor tasks ran zsh and so used Nx's default of 3 parallel tasks. It's still 5 (CPU count, capped at 5), same as the old `.bashrc` line.
 
 I also measured the tasks that never cache, in case they were the problem, and they weren't: `sync-injected` is 48ms, `biome` 49ms, and all the no-op tasks together about a second.
