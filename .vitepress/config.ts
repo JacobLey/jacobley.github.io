@@ -57,6 +57,33 @@ const writeLlmsTxt = async (outDir: string, posts: readonly Post[]): Promise<voi
     await writeFile(Path.join(outDir, 'llms.txt'), `${lines.join('\n')}\n`);
 };
 
+const twoslash = transformerTwoslash({
+    // Every `ts` block is type-checked, not only those marked `twoslash`. A type error
+    // not expected with `// @errors` fails the build (the dev server shows it inline
+    // instead).
+    explicitTrigger: false,
+    // Render `// ^?` results inline, pushing the code below down, rather than as a
+    // popup over the text. Also shows them without JavaScript.
+    queryRendering: 'line',
+    twoslashOptions: { compilerOptions },
+});
+const twoslashLangs: ReadonlySet<string> = new Set(['ts', 'tsx', 'typescript']);
+/**
+ * `twoslash`, applied only to the languages it checks. With `explicitTrigger: false` its
+ * VitePress wrapper removes VitePress's `v-pre` from every code block, whatever the language
+ * ([source](https://github.com/shikijs/shiki/blob/f7d0167873fd676fe4e190bc9b53832fba9ee01d/packages/vitepress-twoslash/src/index.ts#L61-L65)),
+ * so Vue.js would read a `{{ }}` in a YAML or shell block as an interpolation and fail the build.
+ * Other blocks keep VitePress's handling.
+ */
+const typeCheckedCode: typeof twoslash = {
+    ...twoslash,
+    preprocess(code, options) {
+        return twoslashLangs.has(options.lang)
+            ? twoslash.preprocess?.call(this, code, options)
+            : undefined;
+    },
+};
+
 export default defineConfig({
     title,
     description: blogDescription,
@@ -89,18 +116,7 @@ export default defineConfig({
     // `sitemap.xml` at the site's root, listing every page by its full URL
     sitemap: { hostname: siteUrl },
     markdown: {
-        codeTransformers: [
-            transformerTwoslash({
-                // Every `ts` block is type-checked, not only those marked `twoslash`. A type error
-                // not expected with `// @errors` fails the build (the dev server shows it inline
-                // instead).
-                explicitTrigger: false,
-                // Render `// ^?` results inline, pushing the code below down, rather than as a
-                // popup over the text. Also shows them without JavaScript.
-                queryRendering: 'line',
-                twoslashOptions: { compilerOptions },
-            }),
-        ],
+        codeTransformers: [typeCheckedCode],
         languages: ['js', 'ts', 'tsx', 'json', 'sh'],
     },
     async buildEnd({ outDir }) {
