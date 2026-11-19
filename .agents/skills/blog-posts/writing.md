@@ -36,6 +36,7 @@ Common shapes, to vary rather than fill in (every post following one arc is itse
 
 - **Comparison**: the strongest evidence first (the results table, or one worked before/after when the claim is about output shape), how it was measured, each tool's misses with the reason, where the others are the better pick, how to rerun.
 - **Bug or upstream fix**: the puzzle or symptom in numbers, the hunt in order, the mechanism, the fix and its PR, what readers can check in their own setup.
+- **Pattern or practice**: the problem the reader has too, then the idea that solves it, in terms that carry to any stack, then the author's repo as one worked example (links to the code, and only the gotchas someone copying it would hit). The reader should leave with the idea, not the author's config: the title can hint at the solution, but the post isn't a tour of the setup.
 - **Design decision**: the constraint, the options with their costs, the choice, what it gave up, where the rejected option still wins. Rust's [RFC template](https://github.com/rust-lang/rfcs/blob/master/0000-template.md) questions are good prompts: why not do this, and could it live somewhere else?
 
 ## Numbers
